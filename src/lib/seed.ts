@@ -296,14 +296,24 @@ async function seed() {
 }
 
 export async function ensureSeeded() {
-  seedPromise ??= seed();
-  await seedPromise;
+  try {
+    seedPromise ??= seed();
+    await seedPromise;
+  } catch (e) {
+    seedPromise = null;
+    console.warn("[seed] Database not available, skipping seed:", (e as Error).message);
+  }
 }
 
 export async function ensureCourseContent() {
-  const [course] = await db.select({ id: courses.id }).from(courses).where(eq(courses.id, courseId)).limit(1);
-  if (!course) {
-    seedPromise = seed();
-    await seedPromise;
+  try {
+    const [course] = await db.select({ id: courses.id }).from(courses).where(eq(courses.id, courseId)).limit(1);
+    if (!course) {
+      seedPromise = seed();
+      await seedPromise;
+    }
+  } catch (e) {
+    console.warn("[seed] Database not available, skipping course content check:", (e as Error).message);
   }
 }
+

@@ -11,12 +11,23 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   await ensureSeeded();
-  const [user, courseRows, popularLessons, leaderboard] = await Promise.all([
-    getCurrentUser(),
-    db.select().from(courses).where(eq(courses.isPublished, true)).orderBy(desc(courses.createdAt)).limit(3),
-    db.select().from(lessons).where(eq(lessons.isPublished, true)).orderBy(asc(lessons.orderIndex)).limit(6),
-    getLeaderboard(3),
-  ]);
+
+  let user = null;
+  let courseRows: any[] = [];
+  let popularLessons: any[] = [];
+  let leaderboard: any[] = [];
+
+  try {
+    [user, courseRows, popularLessons, leaderboard] = await Promise.all([
+      getCurrentUser(),
+      db.select().from(courses).where(eq(courses.isPublished, true)).orderBy(desc(courses.createdAt)).limit(3),
+      db.select().from(lessons).where(eq(lessons.isPublished, true)).orderBy(asc(lessons.orderIndex)).limit(6),
+      getLeaderboard(3),
+    ]);
+  } catch (e) {
+    console.warn("[home] Database not available, rendering with empty data");
+  }
+
   const instagramUrl = process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? "https://www.instagram.com/querynest.sql/";
 
   return (

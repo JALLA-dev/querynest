@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Script from "next/script";
 import { VisitorTracker } from "@/components/visitor-tracker";
 import "./globals.css";
 
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script id="theme-init" strategy="beforeInteractive">{themeScript}</Script>
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-950 antialiased transition-colors duration-200 dark:bg-slate-950 dark:text-slate-50">
         <VisitorTracker />
