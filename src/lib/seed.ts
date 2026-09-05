@@ -16,6 +16,7 @@ import {
   type SqlExample,
 } from "@/db/schema";
 import { hashPassword, slugify } from "./security";
+import { ensureSchema } from "@/db/init";
 
 let seedPromise: Promise<void> | null = null;
 
@@ -284,6 +285,7 @@ async function seedTasksAndQuizzes() {
 }
 
 async function seed() {
+  await ensureSchema();
   await seedUsers();
   await seedBadges();
 
