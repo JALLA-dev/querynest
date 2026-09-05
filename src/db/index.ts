@@ -1,23 +1,40 @@
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
-import path from "path";
 
-const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "querynest.db");
+const connectionString = process.env.DATABASE_URL;
 
 const globalForDb = globalThis as typeof globalThis & {
-  __querynestSqlite?: InstanceType<typeof Database>;
+  __querynestPgPool?: Pool;
 };
 
-export const sqlite =
-  globalForDb.__querynestSqlite ??
-  new Database(dbPath);
+function createPool(): Pool {
+  if (!connectionString) {
+    // Allows Next.js build / typecheck to succeed even if DATABASE_URL is not yet set
+    return new Pool({
+      connectionString: undefined,
+      max: 1,
+    });
+  }
 
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+  const isRenderOrRemote =
+    connectionString.includes("render.com") ||
+    connectionString.includes("sslmode=require") ||
+    process.env.NODE_ENV === "production";
 
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.__querynestSqlite = sqlite;
+  return new Pool({
+    connectionString,
+    ssl: isRenderOrRemote ? { rejectUnauthorized: false } : undefined,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
 }
 
-export const db = drizzle(sqlite, { schema });
+export const pool = globalForDb.__querynestPgPool ?? createPool();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForDb.__querynestPgPool = pool;
+}
+
+export const db = drizzle(pool, { schema });
