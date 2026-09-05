@@ -4,12 +4,16 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { hashPassword, isValidEmail, normalizeEmail } from "@/lib/security";
 import { setSessionCookie } from "@/lib/auth";
+import { ensureSchema } from "@/db/init";
 import { ensureSeeded } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  // Ensure schema is fully synced before performing query or insert
+  await ensureSchema();
   await ensureSeeded();
+
   const body = (await request.json().catch(() => null)) as { name?: string; email?: string; password?: string } | null;
   const name = body?.name?.trim() ?? "";
   const email = normalizeEmail(body?.email ?? "");
@@ -31,21 +35,28 @@ export async function POST(request: Request) {
       return Response.json({ error: "An account with this email already exists." }, { status: 409 });
     }
   } catch (err: unknown) {
-    const error = err as { code?: string; message?: string; detail?: string };
+    const rawError = err as any;
+    const cause = rawError?.cause ?? {};
+    const code = cause?.code ?? rawError?.code;
+    const message = cause?.message ?? rawError?.message;
+
     console.error("[register check error]", {
-      code: error?.code,
-      message: error?.message,
-      detail: error?.detail,
+      code,
+      message,
+      detail: cause?.detail ?? rawError?.detail,
+      table: cause?.table ?? rawError?.table,
     });
-    // If the database query itself failed, don't falsely claim 409
+
     return Response.json(
       { error: "Database error during account verification. Please try again." },
       { status: 500 }
     );
   }
 
-  // 2. Insert new user
+  // 2. Insert new user with explicit timestamps and defaults
   const id = nanoid();
+  const now = new Date();
+
   try {
     await db.insert(users).values({
       id,
@@ -55,34 +66,54 @@ export async function POST(request: Request) {
       role: "STUDENT",
       avatarUrl: `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(email)}`,
       streak: 1,
+      createdAt: now,
+      updatedAt: now,
     });
 
     await setSessionCookie(id, "STUDENT");
     return Response.json({ ok: true, redirectTo: "/dashboard" });
   } catch (err: unknown) {
-    const error = err as { code?: string; message?: string; detail?: string; constraint?: string };
+    const rawError = err as any;
+    const cause = rawError?.cause ?? {};
+    const code = cause?.code ?? rawError?.code;
+    const message = cause?.message ?? rawError?.message;
+    const detail = cause?.detail ?? rawError?.detail;
+    const constraint = cause?.constraint ?? rawError?.constraint;
+    const column = cause?.column ?? rawError?.column;
+    const table = cause?.table ?? rawError?.table;
+
     console.error("[register insert error]", {
-      code: error?.code,
-      message: error?.message,
-      detail: error?.detail,
-      constraint: error?.constraint,
+      code,
+      message,
+      detail,
+      constraint,
+      column,
+      table,
     });
 
     // PostgreSQL code 23505 = unique_violation
     const isUniqueViolation =
-      error?.code === "23505" ||
-      error?.message?.includes("unique constraint") ||
-      error?.message?.includes("users_email_idx") ||
-      error?.message?.includes("duplicate key");
+      code === "23505" ||
+      message?.includes("unique constraint") ||
+      message?.includes("users_email_idx") ||
+      message?.includes("duplicate key") ||
+      detail?.includes("already exists");
 
     if (isUniqueViolation) {
       return Response.json({ error: "An account with this email already exists." }, { status: 409 });
     }
 
-    if (error?.code === "ECONNREFUSED" || error?.code === "ETIMEDOUT") {
+    if (code === "ECONNREFUSED" || code === "ETIMEDOUT") {
       return Response.json({ error: "Database is temporarily unavailable. Please try again." }, { status: 503 });
     }
 
-    return Response.json({ error: "Failed to create account. Please try again." }, { status: 500 });
+    return Response.json(
+      {
+        error: "Failed to create account. Please try again.",
+        detail: process.env.NODE_ENV !== "production" ? message : undefined,
+        code: code ?? "DB_INSERT_ERROR",
+      },
+      { status: 500 }
+    );
   }
 }
