@@ -5,6 +5,7 @@ import { Card, MarkdownView, Pill, ProgressBar, PublicHeader, Shell } from "@/co
 import { requireUser } from "@/lib/auth";
 import { ensureSeeded } from "@/lib/seed";
 import { enrollUser, getEnrollment, getLessonLearningData } from "@/lib/data";
+import { formatVideoEmbedUrl } from "@/lib/video";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,17 @@ export default async function LessonPage({ params }: { params: Promise<{ courseI
         <section className="min-w-0">
           <Card className="overflow-hidden p-0">
             <div className="aspect-video w-full bg-slate-950">
-              {data.lesson.videoUrl ? <iframe src={data.lesson.videoUrl} title={data.lesson.title} className="h-full w-full" allowFullScreen /> : <div className="grid h-full place-items-center text-white">Video URL can be added by the instructor.</div>}
+              {formatVideoEmbedUrl(data.lesson.videoUrl) ? (
+                <iframe
+                  src={formatVideoEmbedUrl(data.lesson.videoUrl)!}
+                  title={data.lesson.title}
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="grid h-full place-items-center text-slate-400">Video URL can be added by the instructor in Admin &gt; Videos.</div>
+              )}
             </div>
             <div className="p-6 sm:p-8">
               <div className="flex flex-wrap gap-2"><Pill tone="emerald">+{data.lesson.points} lesson points</Pill><Pill tone="indigo">{data.lesson.durationMinutes} min</Pill>{completed ? <Pill tone="amber">Completed</Pill> : null}</div>

@@ -217,6 +217,7 @@ export function AdminNav() {
   const links = [
     { label: "Dashboard", href: "/admin", icon: "📊" },
     { label: "Courses", href: "/admin/courses", icon: "📚" },
+    { label: "Videos", href: "/admin/videos", icon: "🎬" },
     { label: "Quizzes", href: "/admin/quizzes", icon: "📝" },
     { label: "Student Progress", href: "/admin/progress", icon: "📈" },
     { label: "Students", href: "/admin/students", icon: "👥" },
