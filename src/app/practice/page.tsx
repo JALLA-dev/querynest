@@ -10,13 +10,18 @@ export const dynamic = "force-dynamic";
 export default async function PracticePage() {
   await ensureSeeded();
   const user = await getCurrentUser();
-  const allTasks = await db.select({
-    id: tasks.id,
-    title: tasks.title,
-    points: tasks.points,
-    difficulty: tasks.difficulty,
-    description: tasks.description,
-  }).from(tasks);
+  let allTasks: any[] = [];
+  try {
+    allTasks = await db.select({
+      id: tasks.id,
+      title: tasks.title,
+      points: tasks.points,
+      difficulty: tasks.difficulty,
+      description: tasks.description,
+    }).from(tasks);
+  } catch (e) {
+    console.warn("[practice] Failed to load tasks:", (e as Error).message);
+  }
 
   return (
     <Shell>

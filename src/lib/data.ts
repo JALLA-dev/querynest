@@ -23,6 +23,7 @@ import {
   type JsonRow,
 } from "@/db/schema";
 import { hashPassword, verifyPassword } from "./security";
+import { ensureSchema } from "@/db/init";
 
 
 export function levelFromPoints(points: number) {
@@ -73,23 +74,35 @@ export async function refreshBadges(userId: string) {
 }
 
 export async function getPublishedCourses() {
+  await ensureSchema();
   return db.select().from(courses).where(eq(courses.isPublished, true)).orderBy(desc(courses.createdAt));
 }
 
 export async function getCourseCounts(courseId: string) {
-  const [[lessonCount], [quizCount], [taskCount]] = await Promise.all([
-    db.select({ value: count() }).from(lessons).where(and(eq(lessons.courseId, courseId), eq(lessons.isPublished, true))),
-    db.select({ value: count() }).from(quizzes).where(and(eq(quizzes.courseId, courseId), eq(quizzes.isPublished, true))),
-    db.select({ value: count() }).from(tasks).where(and(eq(tasks.courseId, courseId), eq(tasks.isPublished, true))),
-  ]);
-  return {
-    lessons: lessonCount?.value ?? 0,
-    quizzes: quizCount?.value ?? 0,
-    tasks: taskCount?.value ?? 0,
-  };
+  await ensureSchema();
+  try {
+    const [[lessonCount], [quizCount], [taskCount]] = await Promise.all([
+      db.select({ value: count() }).from(lessons).where(and(eq(lessons.courseId, courseId), eq(lessons.isPublished, true))),
+      db.select({ value: count() }).from(quizzes).where(and(eq(quizzes.courseId, courseId), eq(quizzes.isPublished, true))),
+      db.select({ value: count() }).from(tasks).where(and(eq(tasks.courseId, courseId), eq(tasks.isPublished, true))),
+    ]);
+    return {
+      lessons: lessonCount?.value ?? 0,
+      quizzes: quizCount?.value ?? 0,
+      tasks: taskCount?.value ?? 0,
+    };
+  } catch (e) {
+    console.warn("[data] getCourseCounts notice:", (e as Error).message);
+    return {
+      lessons: 0,
+      quizzes: 0,
+      tasks: 0,
+    };
+  }
 }
 
 export async function getCourseWithOutline(courseIdOrSlug: string) {
+  await ensureSchema();
   const [course] = await db
     .select()
     .from(courses)
