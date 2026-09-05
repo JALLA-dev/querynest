@@ -40,6 +40,12 @@ export default async function DashboardPage() {
 
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
+              href="/practice"
+              className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-emerald-600/20 transition hover:opacity-90"
+            >
+              ⚡ Open SQL Panel
+            </Link>
+            <Link
               href="/quizzes"
               className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-800 shadow-sm transition hover:border-emerald-400 hover:text-emerald-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
             >

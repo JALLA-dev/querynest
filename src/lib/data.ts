@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, like, inArray, isNull, or, sql, sum } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import {
@@ -89,9 +89,14 @@ export async function getCourseCounts(courseId: string) {
   };
 }
 
-export async function getCourseWithOutline(courseId: string) {
-  const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
+export async function getCourseWithOutline(courseIdOrSlug: string) {
+  const [course] = await db
+    .select()
+    .from(courses)
+    .where(or(eq(courses.id, courseIdOrSlug), eq(courses.slug, courseIdOrSlug)))
+    .limit(1);
   if (!course) return null;
+  const courseId = course.id;
   const [moduleRows, lessonRows, taskRows, quizRows] = await Promise.all([
     db.select().from(modules).where(eq(modules.courseId, courseId)).orderBy(asc(modules.orderIndex)),
     db.select().from(lessons).where(eq(lessons.courseId, courseId)).orderBy(asc(lessons.orderIndex)),
@@ -306,11 +311,11 @@ export async function getProfileData(userId: string) {
 export async function searchContent(query: string) {
   const q = `%${query}%`;
   const [courseRows, lessonRows, noteRows, taskRows, quizRows] = await Promise.all([
-    db.select({ id: courses.id, title: courses.title, description: courses.description, type: sql<string>`'Course'` }).from(courses).where(or(ilike(courses.title, q), ilike(courses.description, q))).limit(10),
-    db.select({ id: lessons.id, courseId: lessons.courseId, title: lessons.title, description: lessons.description, type: sql<string>`'Lesson'` }).from(lessons).where(or(ilike(lessons.title, q), ilike(lessons.description, q))).limit(10),
-    db.select({ id: notes.id, lessonId: notes.lessonId, title: notes.title, description: notes.markdown, type: sql<string>`'Note'` }).from(notes).where(or(ilike(notes.title, q), ilike(notes.markdown, q))).limit(10),
-    db.select({ id: tasks.id, title: tasks.title, description: tasks.description, type: sql<string>`'Task'` }).from(tasks).where(or(ilike(tasks.title, q), ilike(tasks.description, q))).limit(10),
-    db.select({ id: quizzes.id, title: quizzes.title, description: quizzes.description, type: sql<string>`'Quiz'` }).from(quizzes).where(or(ilike(quizzes.title, q), ilike(quizzes.description, q))).limit(10),
+    db.select({ id: courses.id, title: courses.title, description: courses.description, type: sql<string>`'Course'` }).from(courses).where(or(like(courses.title, q), like(courses.description, q))).limit(10),
+    db.select({ id: lessons.id, courseId: lessons.courseId, title: lessons.title, description: lessons.description, type: sql<string>`'Lesson'` }).from(lessons).where(or(like(lessons.title, q), like(lessons.description, q))).limit(10),
+    db.select({ id: notes.id, lessonId: notes.lessonId, title: notes.title, description: notes.markdown, type: sql<string>`'Note'` }).from(notes).where(or(like(notes.title, q), like(notes.markdown, q))).limit(10),
+    db.select({ id: tasks.id, title: tasks.title, description: tasks.description, type: sql<string>`'Task'` }).from(tasks).where(or(like(tasks.title, q), like(tasks.description, q))).limit(10),
+    db.select({ id: quizzes.id, title: quizzes.title, description: quizzes.description, type: sql<string>`'Quiz'` }).from(quizzes).where(or(like(quizzes.title, q), like(quizzes.description, q))).limit(10),
   ]);
   return { courses: courseRows, lessons: lessonRows, notes: noteRows, tasks: taskRows, quizzes: quizRows };
 }
@@ -389,28 +394,8 @@ type VisitorRecord = {
 };
 const memoryVisits: VisitorRecord[] = [];
 
-let visitsTableChecked = false;
-async function ensureSiteVisitsTable() {
-  if (visitsTableChecked) return;
-  try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS site_visits (
-        id text PRIMARY KEY,
-        path varchar(255) NOT NULL,
-        ip varchar(80),
-        user_agent text,
-        referer text,
-        user_id text REFERENCES users(id) ON DELETE SET NULL,
-        user_role varchar(24) DEFAULT 'GUEST',
-        user_name varchar(160),
-        visited_at timestamp NOT NULL DEFAULT NOW()
-      );
-    `);
-    visitsTableChecked = true;
-  } catch (err) {
-    console.warn("Could not ensure site_visits table, using memory fallback", err);
-  }
-}
+// site_visits table is created by drizzle push from the schema
+// No raw SQL needed for SQLite
 
 export async function recordSiteVisit(data: {
   path: string;
@@ -437,7 +422,6 @@ export async function recordSiteVisit(data: {
   if (memoryVisits.length > 200) memoryVisits.pop();
 
   try {
-    await ensureSiteVisitsTable();
     await db.insert(siteVisits).values({
       id: visit.id,
       path: visit.path,
@@ -458,7 +442,6 @@ export async function recordSiteVisit(data: {
 export async function getVisitorAnalytics(limit = 50) {
   let dbRows: VisitorRecord[] = [];
   try {
-    await ensureSiteVisitsTable();
     const rows = await db.select().from(siteVisits).orderBy(desc(siteVisits.visitedAt)).limit(limit);
     dbRows = rows.map((r) => ({
       ...r,

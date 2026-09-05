@@ -1,13 +1,9 @@
 import {
-  boolean,
   integer,
-  jsonb,
-  pgTable,
+  sqliteTable,
   text,
-  timestamp,
   uniqueIndex,
-  varchar,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
 
 export type UserRole = "STUDENT" | "ADMIN";
 export type Difficulty = "Beginner" | "Intermediate" | "Advanced" | "Easy" | "Medium" | "Hard";
@@ -17,156 +13,158 @@ export type PracticeDataset = { tables: Record<string, JsonRow[]> };
 export type SqlExample = { title: string; sql: string; explanation: string };
 export type CertificateMeta = { certificateId: string; issuedAt: string };
 
-export const users = pgTable(
+// Helper: SQLite stores JSON as text, booleans as 0/1, timestamps as epoch ms
+
+export const users = sqliteTable(
   "users",
   {
     id: text("id").primaryKey(),
-    name: varchar("name", { length: 160 }).notNull(),
-    email: varchar("email", { length: 240 }).notNull(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
-    role: varchar("role", { length: 24 }).$type<UserRole>().notNull().default("STUDENT"),
+    role: text("role").$type<UserRole>().notNull().default("STUDENT"),
     avatarUrl: text("avatar_url"),
     bio: text("bio"),
     streak: integer("streak").notNull().default(0),
-    lastActiveAt: timestamp("last_active_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    lastActiveAt: integer("last_active_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   },
   (table) => ({
     emailIdx: uniqueIndex("users_email_idx").on(table.email),
   }),
 );
 
-export const courses = pgTable("courses", {
+export const courses = sqliteTable("courses", {
   id: text("id").primaryKey(),
-  title: varchar("title", { length: 220 }).notNull(),
-  slug: varchar("slug", { length: 240 }).notNull(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
   description: text("description").notNull(),
   longDescription: text("long_description"),
-  instructorName: varchar("instructor_name", { length: 160 }).notNull(),
+  instructorName: text("instructor_name").notNull(),
   thumbnailUrl: text("thumbnail_url"),
-  difficulty: varchar("difficulty", { length: 40 }).notNull().default("Beginner"),
+  difficulty: text("difficulty").notNull().default("Beginner"),
   durationMinutes: integer("duration_minutes").notNull().default(0),
   totalPoints: integer("total_points").notNull().default(0),
-  tags: jsonb("tags").$type<string[]>().notNull().default([]),
-  isPublished: boolean("is_published").notNull().default(false),
+  tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
+  isPublished: integer("is_published", { mode: "boolean" }).notNull().default(false),
   createdById: text("created_by_id").references(() => users.id, { onDelete: "set null" }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const modules = pgTable("modules", {
+export const modules = sqliteTable("modules", {
   id: text("id").primaryKey(),
   courseId: text("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 220 }).notNull(),
+  title: text("title").notNull(),
   description: text("description"),
   orderIndex: integer("order_index").notNull().default(0),
   points: integer("points").notNull().default(100),
-  isPublished: boolean("is_published").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  isPublished: integer("is_published", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const lessons = pgTable("lessons", {
+export const lessons = sqliteTable("lessons", {
   id: text("id").primaryKey(),
   moduleId: text("module_id").notNull().references(() => modules.id, { onDelete: "cascade" }),
   courseId: text("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 260 }).notNull(),
-  slug: varchar("slug", { length: 280 }).notNull(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
   description: text("description").notNull(),
   videoUrl: text("video_url"),
-  videoProvider: varchar("video_provider", { length: 60 }).default("external"),
+  videoProvider: text("video_provider").default("external"),
   thumbnailUrl: text("thumbnail_url"),
   durationMinutes: integer("duration_minutes").notNull().default(8),
   orderIndex: integer("order_index").notNull().default(0),
   points: integer("points").notNull().default(10),
-  concepts: jsonb("concepts").$type<string[]>().notNull().default([]),
-  sqlExamples: jsonb("sql_examples").$type<SqlExample[]>().notNull().default([]),
-  isPublished: boolean("is_published").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  concepts: text("concepts", { mode: "json" }).$type<string[]>().notNull().default([]),
+  sqlExamples: text("sql_examples", { mode: "json" }).$type<SqlExample[]>().notNull().default([]),
+  isPublished: integer("is_published", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const notes = pgTable("notes", {
+export const notes = sqliteTable("notes", {
   id: text("id").primaryKey(),
   lessonId: text("lesson_id").notNull().references(() => lessons.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 220 }).notNull(),
+  title: text("title").notNull(),
   markdown: text("markdown").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const tasks = pgTable("tasks", {
+export const tasks = sqliteTable("tasks", {
   id: text("id").primaryKey(),
   lessonId: text("lesson_id").references(() => lessons.id, { onDelete: "cascade" }),
   moduleId: text("module_id").references(() => modules.id, { onDelete: "cascade" }),
   courseId: text("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 240 }).notNull(),
+  title: text("title").notNull(),
   description: text("description").notNull(),
-  difficulty: varchar("difficulty", { length: 40 }).notNull().default("Easy"),
+  difficulty: text("difficulty").notNull().default("Easy"),
   dbSchema: text("db_schema").notNull(),
-  sampleData: jsonb("sample_data").$type<PracticeDataset>().notNull(),
-  expectedOutput: jsonb("expected_output").$type<JsonRow[]>().notNull(),
+  sampleData: text("sample_data", { mode: "json" }).$type<PracticeDataset>().notNull(),
+  expectedOutput: text("expected_output", { mode: "json" }).$type<JsonRow[]>().notNull(),
   starterSql: text("starter_sql").notNull().default("SELECT *\nFROM employees;"),
   solutionSql: text("solution_sql").notNull(),
-  hints: jsonb("hints").$type<string[]>().notNull().default([]),
+  hints: text("hints", { mode: "json" }).$type<string[]>().notNull().default([]),
   points: integer("points").notNull().default(20),
   timeLimitMinutes: integer("time_limit_minutes"),
-  isPublished: boolean("is_published").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  isPublished: integer("is_published", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const quizzes = pgTable("quizzes", {
+export const quizzes = sqliteTable("quizzes", {
   id: text("id").primaryKey(),
   moduleId: text("module_id").references(() => modules.id, { onDelete: "cascade" }),
   lessonId: text("lesson_id").references(() => lessons.id, { onDelete: "cascade" }),
   courseId: text("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 240 }).notNull(),
+  title: text("title").notNull(),
   description: text("description"),
   passingPercentage: integer("passing_percentage").notNull().default(70),
   points: integer("points").notNull().default(50),
-  isPublished: boolean("is_published").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  isPublished: integer("is_published", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const questions = pgTable("questions", {
+export const questions = sqliteTable("questions", {
   id: text("id").primaryKey(),
   quizId: text("quiz_id").notNull().references(() => quizzes.id, { onDelete: "cascade" }),
   prompt: text("prompt").notNull(),
-  options: jsonb("options").$type<string[]>().notNull(),
-  correctAnswer: varchar("correct_answer", { length: 400 }).notNull(),
+  options: text("options", { mode: "json" }).$type<string[]>().notNull(),
+  correctAnswer: text("correct_answer").notNull(),
   explanation: text("explanation").notNull(),
   points: integer("points").notNull().default(10),
   orderIndex: integer("order_index").notNull().default(0),
 });
 
-export const enrollments = pgTable(
+export const enrollments = sqliteTable(
   "enrollments",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     courseId: text("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
     progressPercent: integer("progress_percent").notNull().default(0),
-    completedAt: timestamp("completed_at"),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
     lastLessonId: text("last_lesson_id"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   },
   (table) => ({
     uniqueEnrollment: uniqueIndex("enrollments_user_course_idx").on(table.userId, table.courseId),
   }),
 );
 
-export const lessonProgress = pgTable(
+export const lessonProgress = sqliteTable(
   "lesson_progress",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     courseId: text("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
     lessonId: text("lesson_id").notNull().references(() => lessons.id, { onDelete: "cascade" }),
-    completedAt: timestamp("completed_at").notNull().defaultNow(),
+    completedAt: integer("completed_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
     pointsAwarded: integer("points_awarded").notNull().default(0),
   },
   (table) => ({
@@ -174,100 +172,99 @@ export const lessonProgress = pgTable(
   }),
 );
 
-export const taskSubmissions = pgTable("task_submissions", {
+export const taskSubmissions = sqliteTable("task_submissions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   taskId: text("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
   query: text("query").notNull(),
-  isCorrect: boolean("is_correct").notNull().default(false),
-  result: jsonb("result").$type<JsonRow[]>().notNull().default([]),
+  isCorrect: integer("is_correct", { mode: "boolean" }).notNull().default(false),
+  result: text("result", { mode: "json" }).$type<JsonRow[]>().notNull().default([]),
   pointsAwarded: integer("points_awarded").notNull().default(0),
-  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+  submittedAt: integer("submitted_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const quizAttempts = pgTable("quiz_attempts", {
+export const quizAttempts = sqliteTable("quiz_attempts", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   quizId: text("quiz_id").notNull().references(() => quizzes.id, { onDelete: "cascade" }),
   score: integer("score").notNull().default(0),
   totalQuestions: integer("total_questions").notNull().default(0),
   percentage: integer("percentage").notNull().default(0),
-  passed: boolean("passed").notNull().default(false),
+  passed: integer("passed", { mode: "boolean" }).notNull().default(false),
   pointsAwarded: integer("points_awarded").notNull().default(0),
-  answers: jsonb("answers").$type<Record<string, string>>().notNull().default({}),
-  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+  answers: text("answers", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
+  submittedAt: integer("submitted_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const pointsTransactions = pgTable("points_transactions", {
+export const pointsTransactions = sqliteTable("points_transactions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   points: integer("points").notNull(),
-  reason: varchar("reason", { length: 260 }).notNull(),
-  referenceType: varchar("reference_type", { length: 80 }),
+  reason: text("reason").notNull(),
+  referenceType: text("reference_type"),
   referenceId: text("reference_id"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const badges = pgTable("badges", {
+export const badges = sqliteTable("badges", {
   id: text("id").primaryKey(),
-  name: varchar("name", { length: 120 }).notNull(),
+  name: text("name").notNull(),
   description: text("description").notNull(),
-  icon: varchar("icon", { length: 40 }).notNull().default("🏅"),
+  icon: text("icon").notNull().default("🏅"),
   requiredPoints: integer("required_points").notNull().default(0),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const userBadges = pgTable(
+export const userBadges = sqliteTable(
   "user_badges",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     badgeId: text("badge_id").notNull().references(() => badges.id, { onDelete: "cascade" }),
-    awardedAt: timestamp("awarded_at").notNull().defaultNow(),
+    awardedAt: integer("awarded_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   },
   (table) => ({
     uniqueUserBadge: uniqueIndex("user_badges_user_badge_idx").on(table.userId, table.badgeId),
   }),
 );
 
-export const certificates = pgTable(
+export const certificates = sqliteTable(
   "certificates",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     courseId: text("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-    certificateId: varchar("certificate_id", { length: 120 }).notNull(),
-    instructorName: varchar("instructor_name", { length: 160 }).notNull(),
-    meta: jsonb("meta").$type<CertificateMeta>().notNull(),
-    issuedAt: timestamp("issued_at").notNull().defaultNow(),
+    certificateId: text("certificate_id").notNull(),
+    instructorName: text("instructor_name").notNull(),
+    meta: text("meta", { mode: "json" }).$type<CertificateMeta>().notNull(),
+    issuedAt: integer("issued_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   },
   (table) => ({
     uniqueCertificate: uniqueIndex("certificates_user_course_idx").on(table.userId, table.courseId),
   }),
 );
 
-export const bookmarks = pgTable(
+export const bookmarks = sqliteTable(
   "bookmarks",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     lessonId: text("lesson_id").notNull().references(() => lessons.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   },
   (table) => ({
     uniqueBookmark: uniqueIndex("bookmarks_user_lesson_idx").on(table.userId, table.lessonId),
   }),
 );
 
-export const siteVisits = pgTable("site_visits", {
+export const siteVisits = sqliteTable("site_visits", {
   id: text("id").primaryKey(),
-  path: varchar("path", { length: 255 }).notNull(),
-  ip: varchar("ip", { length: 80 }),
+  path: text("path").notNull(),
+  ip: text("ip"),
   userAgent: text("user_agent"),
   referer: text("referer"),
   userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
-  userRole: varchar("user_role", { length: 24 }).default("GUEST"),
-  userName: varchar("user_name", { length: 160 }),
-  visitedAt: timestamp("visited_at").notNull().defaultNow(),
+  userRole: text("user_role").default("GUEST"),
+  userName: text("user_name"),
+  visitedAt: integer("visited_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
-

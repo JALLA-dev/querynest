@@ -284,8 +284,7 @@ async function seedTasksAndQuizzes() {
 }
 
 async function seed() {
-  const [existingUsers] = await db.select({ value: count() }).from(users);
-  if ((existingUsers?.value ?? 0) === 0) await seedUsers();
+  await seedUsers();
   await seedBadges();
 
   const [existingCourses] = await db.select({ value: count() }).from(courses);

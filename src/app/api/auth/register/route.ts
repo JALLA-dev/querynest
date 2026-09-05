@@ -22,7 +22,10 @@ export async function POST(request: Request) {
     await db.insert(users).values({ id, name, email, passwordHash: hashPassword(password), role: "STUDENT", avatarUrl: `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(email)}`, streak: 1 });
     await setSessionCookie(id, "STUDENT");
     return Response.json({ ok: true, redirectTo: "/dashboard" });
-  } catch {
+  } catch (e: any) {
+    if (e?.cause?.code === "ECONNREFUSED" || e?.message?.includes("ECONNREFUSED")) {
+      return Response.json({ error: "Database is not available. Please ensure PostgreSQL is running." }, { status: 503 });
+    }
     return Response.json({ error: "An account with this email already exists." }, { status: 409 });
   }
 }

@@ -28,7 +28,7 @@ export default async function HomePage() {
     console.warn("[home] Database not available, rendering with empty data");
   }
 
-  const instagramUrl = process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? "https://www.instagram.com/querynest.sql/";
+  const instagramUrl = process.env.NEXT_PUBLIC_INSTAGRAM_URL || "https://www.instagram.com/querynest.tech?igsi=cnA3cnJqMml6djBr";
 
   return (
     <Shell>
@@ -41,7 +41,7 @@ export default async function HomePage() {
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">A professional learning hub for students coming from Instagram: video lessons, SQL notes, safe practice tasks, quizzes, certificates, progress, and a leaderboard in one clean product.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/courses" className="rounded-2xl bg-slate-950 px-6 py-4 text-center font-black text-white shadow-xl shadow-slate-950/20">Start Learning SQL</Link>
-              <a href={instagramUrl} target="_blank" rel="noreferrer" className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-orange-400 px-6 py-4 text-center font-black text-white shadow-xl shadow-orange-900/20">Follow us on Instagram</a>
+              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-orange-400 px-6 py-4 text-center font-black text-white shadow-xl shadow-orange-900/20">Follow us on Instagram</a>
             </div>
             <div className="mt-8 grid max-w-xl grid-cols-3 gap-3">
               {[ ["2k+", "Learners"], ["80+", "SQL prompts"], ["24/7", "Practice"] ].map(([value, label]) => <div key={label} className="rounded-3xl bg-white/80 p-4 text-center shadow-lg shadow-slate-950/[0.05]"><p className="text-2xl font-black">{value}</p><p className="text-xs font-bold uppercase text-slate-500">{label}</p></div>)}
@@ -106,7 +106,7 @@ export default async function HomePage() {
             <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-300">Instructor brand</p>
             <h2 className="mt-4 text-4xl font-black">From Instagram tips to a full SQL academy.</h2>
             <p className="mt-4 leading-7 text-slate-300">Querynest turns bite-sized social content into an organized e-learning system where every concept has a lesson, note, task, quiz, score, and progress trail.</p>
-            <a href={instagramUrl} target="_blank" rel="noreferrer" className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 font-black text-slate-950">Follow us on Instagram</a>
+            <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 font-black text-slate-950">Follow us on Instagram</a>
           </Card>
           <Card>
             <h2 className="text-3xl font-black">Leaderboard preview</h2>

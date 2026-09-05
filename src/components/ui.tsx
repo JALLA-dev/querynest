@@ -31,6 +31,9 @@ export function PublicHeader({ userName, isAdmin }: { userName?: string; isAdmin
         <BrandMark />
         <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-700 md:flex dark:text-slate-300">
           <Link className="hover:text-emerald-700 dark:hover:text-emerald-400" href="/courses">Courses</Link>
+          <Link className="hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400" href="/practice">
+            <span>⚡</span>SQL Panel
+          </Link>
           <Link className="hover:text-emerald-700 dark:hover:text-emerald-400" href="/quizzes">Quizzes</Link>
           <Link className="hover:text-emerald-700 dark:hover:text-emerald-400" href="/leaderboard">Leaderboard</Link>
           <Link className="hover:text-emerald-700 dark:hover:text-emerald-400" href="/search">Search</Link>
@@ -69,7 +72,7 @@ export function PublicHeader({ userName, isAdmin }: { userName?: string; isAdmin
 }
 
 export function Footer() {
-  const instagramUrl = process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? "https://www.instagram.com/querynest.sql/";
+  const instagramUrl = process.env.NEXT_PUBLIC_INSTAGRAM_URL || "https://www.instagram.com/querynest.tech?igsi=cnA3cnJqMml6djBr";
   return (
     <footer className="border-t border-slate-200 bg-white/80 transition-colors duration-200 dark:border-slate-800/80 dark:bg-slate-950/80">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.5fr_1fr_1fr] lg:px-8">
@@ -81,6 +84,7 @@ export function Footer() {
           <h3 className="font-bold text-slate-900 dark:text-white">Learn</h3>
           <div className="mt-3 grid gap-2 text-sm text-slate-600 dark:text-slate-400">
             <Link className="hover:text-emerald-600 dark:hover:text-emerald-400" href="/courses">Courses</Link>
+            <Link className="hover:text-emerald-600 dark:hover:text-emerald-400 font-bold text-emerald-600 dark:text-emerald-400" href="/practice">⚡ SQL Panel (Practice)</Link>
             <Link className="hover:text-emerald-600 dark:hover:text-emerald-400" href="/quizzes">Quizzes</Link>
             <Link className="hover:text-emerald-600 dark:hover:text-emerald-400" href="/dashboard">Dashboard</Link>
             <Link className="hover:text-emerald-600 dark:hover:text-emerald-400" href="/leaderboard">Leaderboard</Link>
@@ -89,7 +93,7 @@ export function Footer() {
         <div>
           <h3 className="font-bold text-slate-900 dark:text-white">Community & Theme</h3>
           <div className="mt-3 flex flex-col gap-3 items-start">
-            <a className="inline-flex rounded-full bg-gradient-to-r from-fuchsia-500 to-orange-400 px-4 py-2 text-sm font-black text-white shadow-lg hover:opacity-90" href={instagramUrl} target="_blank" rel="noreferrer">
+            <a className="inline-flex rounded-full bg-gradient-to-r from-fuchsia-500 to-orange-400 px-4 py-2 text-sm font-black text-white shadow-lg hover:opacity-90" href={instagramUrl} target="_blank" rel="noopener noreferrer">
               Follow us on Instagram
             </a>
             <div className="pt-2">

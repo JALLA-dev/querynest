@@ -35,7 +35,7 @@ export default async function AdminSettingsPage() {
           <Card>
             <h2 className="text-2xl font-black text-slate-950 dark:text-white">Platform Information & Integrations</h2>
             <p className="mt-3 leading-7 text-slate-600 dark:text-slate-400">
-              Querynest is structured with PostgreSQL + Drizzle ORM, secure PBKDF2 password hashing, visitor analytics, student progress telemetry, and extensible content architecture.
+              Querynest is structured with SQLite + Drizzle ORM, secure PBKDF2 password hashing, visitor analytics, student progress telemetry, and extensible content architecture.
             </p>
             <div className="mt-5 rounded-2xl bg-slate-950 p-4 font-mono text-xs text-emerald-300 dark:border dark:border-slate-800">
               NEXT_PUBLIC_INSTAGRAM_URL controls the Instagram community target CTA.
