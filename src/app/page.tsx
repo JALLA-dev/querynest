@@ -66,7 +66,12 @@ export default async function HomePage() {
           <SectionHeading eyebrow="Featured courses" title="Structured SQL paths from fundamentals to projects">Every course is created from the instructor dashboard and shown dynamically to students.</SectionHeading>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {await Promise.all(courseRows.map(async (course) => {
-              const counts = await getCourseCounts(course.id);
+              let counts = { lessons: 0, tasks: 0, quizzes: 0 };
+              try {
+                counts = await getCourseCounts(course.id);
+              } catch (err) {
+                // Fallback to zeros if database counts are temporarily unavailable
+              }
               return (
                 <Link key={course.id} href={`/courses/${course.id}`} className="group rounded-[2rem] border border-white/70 bg-white p-5 shadow-xl shadow-slate-950/[0.06] transition hover:-translate-y-1">
                   <div className="h-40 rounded-[1.5rem] bg-cover bg-center" style={{ backgroundImage: `url(${course.thumbnailUrl ?? "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=900&q=80"})` }} />

@@ -16,7 +16,12 @@ export default async function CoursesPage() {
         <SectionHeading eyebrow="Course library" title="Choose your SQL learning path">Browse instructor-published courses. New courses created in the admin dashboard appear here automatically.</SectionHeading>
         <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {await Promise.all(courses.map(async (course) => {
-            const counts = await getCourseCounts(course.id);
+            let counts = { lessons: 0, tasks: 0, quizzes: 0 };
+            try {
+              counts = await getCourseCounts(course.id);
+            } catch (err) {
+              // Fallback to zeros if database counts are temporarily unavailable
+            }
             return (
               <Link key={course.id} href={`/courses/${course.id}`} className="group rounded-[2rem] border border-white/70 bg-white p-5 shadow-xl shadow-slate-950/[0.06] transition hover:-translate-y-1">
                 <div className="h-44 rounded-[1.5rem] bg-cover bg-center" style={{ backgroundImage: `url(${course.thumbnailUrl ?? "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=900&q=80"})` }} />

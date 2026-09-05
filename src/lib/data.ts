@@ -334,34 +334,51 @@ export async function searchContent(query: string) {
 }
 
 export async function getAdminAnalytics() {
-  const [studentCount, courseCount, lessonCount, taskCount, quizCount, enrollmentCount, pointTotal] = await Promise.all([
-    db.select({ value: count() }).from(users).where(eq(users.role, "STUDENT")),
-    db.select({ value: count() }).from(courses),
-    db.select({ value: count() }).from(lessons),
-    db.select({ value: count() }).from(tasks),
-    db.select({ value: count() }).from(quizzes),
-    db.select({ value: count() }).from(enrollments),
-    db.select({ total: sum(pointsTransactions.points) }).from(pointsTransactions),
-  ]);
-  const popularCourses = await db
-    .select({ title: courses.title, enrollments: count(enrollments.id) })
-    .from(courses)
-    .leftJoin(enrollments, eq(enrollments.courseId, courses.id))
-    .groupBy(courses.id)
-    .orderBy(desc(count(enrollments.id)))
-    .limit(5);
-  return {
-    cards: {
-      students: studentCount[0]?.value ?? 0,
-      courses: courseCount[0]?.value ?? 0,
-      lessons: lessonCount[0]?.value ?? 0,
-      tasks: taskCount[0]?.value ?? 0,
-      quizzes: quizCount[0]?.value ?? 0,
-      enrollments: enrollmentCount[0]?.value ?? 0,
-      points: Number(pointTotal[0]?.total ?? 0),
-    },
-    popularCourses,
-  };
+  await ensureSchema();
+  try {
+    const [studentCount, courseCount, lessonCount, taskCount, quizCount, enrollmentCount, pointTotal] = await Promise.all([
+      db.select({ value: count() }).from(users).where(eq(users.role, "STUDENT")),
+      db.select({ value: count() }).from(courses),
+      db.select({ value: count() }).from(lessons),
+      db.select({ value: count() }).from(tasks),
+      db.select({ value: count() }).from(quizzes),
+      db.select({ value: count() }).from(enrollments),
+      db.select({ total: sum(pointsTransactions.points) }).from(pointsTransactions),
+    ]);
+    const popularCourses = await db
+      .select({ title: courses.title, enrollments: count(enrollments.id) })
+      .from(courses)
+      .leftJoin(enrollments, eq(enrollments.courseId, courses.id))
+      .groupBy(courses.id)
+      .orderBy(desc(count(enrollments.id)))
+      .limit(5);
+    return {
+      cards: {
+        students: studentCount[0]?.value ?? 0,
+        courses: courseCount[0]?.value ?? 0,
+        lessons: lessonCount[0]?.value ?? 0,
+        tasks: taskCount[0]?.value ?? 0,
+        quizzes: quizCount[0]?.value ?? 0,
+        enrollments: enrollmentCount[0]?.value ?? 0,
+        points: Number(pointTotal[0]?.total ?? 0),
+      },
+      popularCourses,
+    };
+  } catch (err) {
+    console.warn("[data] getAdminAnalytics notice:", (err as Error).message);
+    return {
+      cards: {
+        students: 0,
+        courses: 0,
+        lessons: 0,
+        tasks: 0,
+        quizzes: 0,
+        enrollments: 0,
+        points: 0,
+      },
+      popularCourses: [],
+    };
+  }
 }
 
 export async function listStudentsForAdmin() {
