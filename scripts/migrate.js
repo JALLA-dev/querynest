@@ -9,7 +9,7 @@ require('dotenv').config({ path: '.env' });
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.log('[migrate] No DATABASE_URL found. Skipping migration.');
+  console.log('[migrate] No DATABASE_URL found. Skipping build-time migration.');
   process.exit(0);
 }
 
@@ -31,10 +31,29 @@ async function run() {
 
   console.log('[migrate] Connected to PostgreSQL. Applying safe schema reconciliation...');
 
-  // Execute using simple query protocol
   try {
+    // 1. Apply all non-destructive DDL statements
     await pool.query(sql);
     console.log('[migrate] Schema migration applied successfully!');
+
+    // 2. Verify critical columns exist
+    const checkTasks = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'course_id'"
+    );
+    if (checkTasks.rows.length > 0) {
+      console.log('[migrate] VERIFIED: tasks.course_id exists in PostgreSQL.');
+    } else {
+      console.warn('[migrate] WARNING: tasks.course_id check returned 0 rows.');
+    }
+
+    const checkUsers = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_hash'"
+    );
+    if (checkUsers.rows.length > 0) {
+      console.log('[migrate] VERIFIED: users.password_hash exists in PostgreSQL.');
+    } else {
+      console.warn('[migrate] WARNING: users.password_hash check returned 0 rows.');
+    }
   } catch (err) {
     console.error('[migrate] Error applying migration:', err.message, err.code);
     process.exit(1);
