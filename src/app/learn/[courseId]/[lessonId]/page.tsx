@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LessonActions } from "@/components/lesson-actions";
 import { Card, MarkdownView, Pill, ProgressBar, PublicHeader, Shell } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { checkNotesAccess, requireUser } from "@/lib/auth";
 import { ensureSeeded } from "@/lib/seed";
 import { enrollUser, getEnrollment, getLessonLearningData } from "@/lib/data";
 import { formatVideoEmbedUrl } from "@/lib/video";
@@ -17,6 +17,7 @@ export default async function LessonPage({ params }: { params: Promise<{ courseI
   const [data, enrollment] = await Promise.all([getLessonLearningData(user.id, courseId, lessonId), getEnrollment(user.id, courseId)]);
   if (!data) notFound();
   const completed = data.completedLessonIds.has(lessonId);
+  const notesAccess = checkNotesAccess(user);
 
   return (
     <Shell>
@@ -72,7 +73,59 @@ export default async function LessonPage({ params }: { params: Promise<{ courseI
             </div>
           </Card>
 
-          {data.notes.map((note) => <Card key={note.id} className="mt-6"><h2 className="text-2xl font-black">{note.title}</h2><div className="mt-4"><MarkdownView markdown={note.markdown} /></div></Card>)}
+          {data.notes.length > 0 ? (
+            notesAccess.hasAccess ? (
+              data.notes.map((note) => (
+                <Card key={note.id} className="mt-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-2xl font-black text-slate-950 dark:text-white">{note.title}</h2>
+                    {notesAccess.status === "admin" && (
+                      <Pill tone="indigo">Instructor Access</Pill>
+                    )}
+                    {notesAccess.status === "active" && notesAccess.expiresAt && (
+                      <Pill tone="emerald">
+                        Notes Access until {notesAccess.expiresAt.toLocaleDateString()}
+                      </Pill>
+                    )}
+                  </div>
+                  <div className="mt-4">
+                    <MarkdownView markdown={note.markdown} />
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <Card className="mt-6 border-2 border-dashed border-amber-300 bg-amber-50/40 p-6 dark:border-amber-900/60 dark:bg-amber-950/20">
+                <div className="flex flex-col sm:flex-row items-start gap-4">
+                  <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-2xl text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                    🔒
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-xl font-black text-slate-950 dark:text-white">Class Notes Restricted</h3>
+                      {notesAccess.isExpired ? (
+                        <Pill tone="amber">Permission Expired</Pill>
+                      ) : (
+                        <Pill tone="slate">Permission Required</Pill>
+                      )}
+                    </div>
+                    <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                      {notesAccess.isExpired
+                        ? `Your permission to view class notes expired on ${notesAccess.expiresAt?.toLocaleDateString()}. Please contact your platform administrator or instructor to renew access.`
+                        : "Class notes for this lesson require instructor permission. Your admin can grant permission with a custom expiration date by visiting your student profile."}
+                    </p>
+                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                      <Link
+                        href="/profile"
+                        className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                      >
+                        Check Profile Access Status →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )
+          ) : null}
 
           {(data.tasks.length || data.quizzes.length) ? <Card className="mt-6"><h2 className="text-2xl font-black">Practice and checkpoint</h2><div className="mt-5 grid gap-3 sm:grid-cols-2">{data.tasks.map((task) => <Link key={task.id} href={`/tasks/${task.id}`} className="rounded-2xl bg-emerald-50 p-5 font-black text-emerald-800">SQL Task: {task.title}<span className="mt-2 block text-sm font-bold">+{task.points} points</span></Link>)}{data.quizzes.map((quiz) => <Link key={quiz.id} href={`/quizzes/${quiz.id}`} className="rounded-2xl bg-indigo-50 p-5 font-black text-indigo-800">Quiz: {quiz.title}<span className="mt-2 block text-sm font-bold">+{quiz.points} points</span></Link>)}</div></Card> : null}
 

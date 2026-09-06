@@ -21,6 +21,8 @@ export type AuthUser = {
   role: UserRole;
   avatarUrl: string | null;
   streak: number;
+  notesAccessEnabled?: boolean;
+  notesAccessExpiresAt?: Date | null;
 };
 
 function encodePayload(payload: SessionPayload) {
@@ -89,6 +91,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       role: users.role,
       avatarUrl: users.avatarUrl,
       streak: users.streak,
+      notesAccessEnabled: users.notesAccessEnabled,
+      notesAccessExpiresAt: users.notesAccessExpiresAt,
     })
     .from(users)
     .where(eq(users.id, session.userId))
@@ -111,4 +115,48 @@ export async function requireAdmin() {
 
 export function isAdmin(user: AuthUser | null) {
   return user?.role === "ADMIN";
+}
+
+export type NotesAccessResult = {
+  hasAccess: boolean;
+  isExpired: boolean;
+  status: "admin" | "active" | "expired" | "disabled";
+  expiresAt: Date | null;
+};
+
+export function checkNotesAccess(user?: {
+  role?: string | null;
+  notesAccessEnabled?: boolean | null;
+  notesAccessExpiresAt?: Date | string | null;
+} | null): NotesAccessResult {
+  if (!user) {
+    return { hasAccess: false, isExpired: false, status: "disabled", expiresAt: null };
+  }
+
+  // Admins always have unconditional access to notes
+  if (user.role === "ADMIN") {
+    return { hasAccess: true, isExpired: false, status: "admin", expiresAt: null };
+  }
+
+  // If permission switch is off
+  if (!user.notesAccessEnabled) {
+    return { hasAccess: false, isExpired: false, status: "disabled", expiresAt: null };
+  }
+
+  // If no expiration date set, access is lifetime/ongoing
+  if (!user.notesAccessExpiresAt) {
+    return { hasAccess: true, isExpired: false, status: "active", expiresAt: null };
+  }
+
+  const expiry = new Date(user.notesAccessExpiresAt);
+  if (isNaN(expiry.getTime())) {
+    // If invalid date, grant access as fallback
+    return { hasAccess: true, isExpired: false, status: "active", expiresAt: null };
+  }
+
+  if (expiry.getTime() <= Date.now()) {
+    return { hasAccess: false, isExpired: true, status: "expired", expiresAt: expiry };
+  }
+
+  return { hasAccess: true, isExpired: false, status: "active", expiresAt: expiry };
 }

@@ -382,6 +382,7 @@ export async function getAdminAnalytics() {
 }
 
 export async function listStudentsForAdmin() {
+  await ensureSchema();
   const studentRows = await db.select().from(users).where(eq(users.role, "STUDENT")).orderBy(desc(users.createdAt));
   const ids = studentRows.map((student) => student.id);
   const totals = ids.length
@@ -391,6 +392,38 @@ export async function listStudentsForAdmin() {
     ...student,
     totalPoints: Number(totals.find((row) => row.userId === student.id)?.total ?? 0),
   }));
+}
+
+export async function updateStudentNotesAccess(studentId: string, enabled: boolean, expiresAt: Date | null) {
+  await ensureSchema();
+  const [updated] = await db
+    .update(users)
+    .set({
+      notesAccessEnabled: enabled,
+      notesAccessExpiresAt: expiresAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, studentId))
+    .returning();
+
+  return updated ?? null;
+}
+
+export async function getStudentDetailForAdmin(studentId: string) {
+  await ensureSchema();
+  const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+  if (!student) return null;
+
+  const [totalPoints, profileData] = await Promise.all([
+    getTotalPoints(studentId),
+    getProfileData(studentId),
+  ]);
+
+  return {
+    student,
+    totalPoints,
+    profileData,
+  };
 }
 
 export async function getAllAdminContent() {

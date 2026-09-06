@@ -27,6 +27,8 @@ export const users = pgTable(
     avatarUrl: text("avatar_url"),
     bio: text("bio"),
     streak: integer("streak").notNull().default(0),
+    notesAccessEnabled: boolean("notes_access_enabled").notNull().default(false),
+    notesAccessExpiresAt: timestamp("notes_access_expires_at", { withTimezone: true, mode: "date" }),
     lastActiveAt: timestamp("last_active_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
