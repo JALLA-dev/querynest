@@ -30,6 +30,8 @@ ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "completed_courses" integer DEFAULT
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tasks_solved" integer DEFAULT 0;
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "notes_access_enabled" boolean DEFAULT false;
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "notes_access_expires_at" timestamp with time zone;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "video_access_enabled" boolean DEFAULT false;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "video_access_expires_at" timestamp with time zone;
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "last_active_at" timestamp with time zone;
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "created_at" timestamp with time zone DEFAULT now();
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now();

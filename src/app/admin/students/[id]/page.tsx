@@ -68,7 +68,7 @@ export default async function AdminStudentDetailPage({
           {/* CLASS NOTES PERMISSION & EXPIRY CONTROL */}
           <div>
             <h2 className="text-2xl font-black text-slate-950 dark:text-white mb-4">
-              Class Notes Access Management
+              Class Materials Access Management
             </h2>
             <AdminStudentNotesAccess
               student={{
@@ -78,6 +78,10 @@ export default async function AdminStudentDetailPage({
                 notesAccessEnabled: Boolean(student.notesAccessEnabled),
                 notesAccessExpiresAt: student.notesAccessExpiresAt
                   ? new Date(student.notesAccessExpiresAt).toISOString()
+                  : null,
+                videoAccessEnabled: Boolean(student.videoAccessEnabled),
+                videoAccessExpiresAt: student.videoAccessExpiresAt
+                  ? new Date(student.videoAccessExpiresAt).toISOString()
                   : null,
               }}
             />

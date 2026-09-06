@@ -216,37 +216,62 @@ export function DataTable({ columns, rows }: { columns: string[]; rows: Record<s
 export function AdminNav() {
   const links = [
     { label: "Dashboard", href: "/admin", icon: "📊" },
+    { label: "Students", href: "/admin/students", icon: "👥" },
     { label: "Courses", href: "/admin/courses", icon: "📚" },
     { label: "Videos", href: "/admin/videos", icon: "🎬" },
     { label: "Quizzes", href: "/admin/quizzes", icon: "📝" },
     { label: "Student Progress", href: "/admin/progress", icon: "📈" },
-    { label: "Students", href: "/admin/students", icon: "👥" },
     { label: "Visitors", href: "/admin/visitors", icon: "🌐" },
     { label: "Analytics", href: "/admin/analytics", icon: "📉" },
     { label: "Settings", href: "/admin/settings", icon: "⚙️" },
   ];
 
   return (
-    <aside className="rounded-[2rem] border border-white/70 bg-slate-950 p-4 text-white shadow-xl shadow-slate-950/15 transition-colors duration-200 dark:border-slate-800 dark:bg-slate-900/90 lg:sticky lg:top-24 lg:h-fit">
-      <div className="mb-6 flex items-center justify-between px-2">
-        <BrandMark />
+    <>
+      {/* MOBILE NAV: Horizontal swipeable app-bar for screens < lg */}
+      <div className="lg:hidden rounded-2xl border border-white/70 bg-slate-950 p-2 text-white shadow-lg transition-colors dark:border-slate-800 dark:bg-slate-900/95 sticky top-16 z-30">
+        <div className="flex items-center justify-between px-2 pb-2 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black uppercase tracking-wider text-emerald-400">Admin Console</span>
+          </div>
+          <ThemeToggle />
+        </div>
+        <nav className="flex items-center gap-1.5 overflow-x-auto pt-2 pb-1 no-scrollbar text-xs font-bold">
+          {links.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-slate-200 transition active:scale-95 hover:bg-white/20 hover:text-white"
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
       </div>
-      <nav className="grid gap-1.5">
-        {links.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white dark:hover:bg-slate-800"
-          >
-            <span>{item.icon}</span>
-            <span>{item.label}</span>
-          </Link>
-        ))}
-      </nav>
-      <div className="mt-6 border-t border-white/10 pt-4 px-2 flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-400">Theme</span>
-        <ThemeToggle />
-      </div>
-    </aside>
+
+      {/* DESKTOP NAV: Full sticky vertical sidebar for lg and above */}
+      <aside className="hidden lg:block rounded-[2rem] border border-white/70 bg-slate-950 p-4 text-white shadow-xl shadow-slate-950/15 transition-colors duration-200 dark:border-slate-800 dark:bg-slate-900/90 lg:sticky lg:top-24 lg:h-fit">
+        <div className="mb-6 flex items-center justify-between px-2">
+          <BrandMark />
+        </div>
+        <nav className="grid gap-1.5">
+          {links.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white dark:hover:bg-slate-800"
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+        <div className="mt-6 border-t border-white/10 pt-4 px-2 flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-400">Theme</span>
+          <ThemeToggle />
+        </div>
+      </aside>
+    </>
   );
 }

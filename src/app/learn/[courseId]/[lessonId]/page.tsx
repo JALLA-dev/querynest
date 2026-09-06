@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LessonActions } from "@/components/lesson-actions";
 import { Card, MarkdownView, Pill, ProgressBar, PublicHeader, Shell } from "@/components/ui";
-import { checkNotesAccess, requireUser } from "@/lib/auth";
+import { checkNotesAccess, checkVideoAccess, requireUser } from "@/lib/auth";
 import { ensureSeeded } from "@/lib/seed";
 import { enrollUser, getEnrollment, getLessonLearningData } from "@/lib/data";
 import { formatVideoEmbedUrl } from "@/lib/video";
@@ -18,6 +18,7 @@ export default async function LessonPage({ params }: { params: Promise<{ courseI
   if (!data) notFound();
   const completed = data.completedLessonIds.has(lessonId);
   const notesAccess = checkNotesAccess(user);
+  const videoAccess = checkVideoAccess(user);
 
   return (
     <Shell>
@@ -46,20 +47,52 @@ export default async function LessonPage({ params }: { params: Promise<{ courseI
         <section className="min-w-0">
           <Card className="overflow-hidden p-0">
             <div className="aspect-video w-full bg-slate-950">
-              {formatVideoEmbedUrl(data.lesson.videoUrl) ? (
-                <iframe
-                  src={formatVideoEmbedUrl(data.lesson.videoUrl)!}
-                  title={data.lesson.title}
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+              {videoAccess.hasAccess ? (
+                formatVideoEmbedUrl(data.lesson.videoUrl) ? (
+                  <iframe
+                    src={formatVideoEmbedUrl(data.lesson.videoUrl)!}
+                    title={data.lesson.title}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center text-slate-400">Video URL can be added by the instructor in Admin &gt; Videos.</div>
+                )
               ) : (
-                <div className="grid h-full place-items-center text-slate-400">Video URL can be added by the instructor in Admin &gt; Videos.</div>
+                <div className="flex h-full w-full flex-col items-center justify-center p-6 text-center text-white bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40">
+                  <div className="grid size-16 place-items-center rounded-3xl bg-amber-500/20 text-3xl text-amber-400 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+                    🔒
+                  </div>
+                  <h3 className="mt-4 text-xl sm:text-2xl font-black tracking-tight">Class Video Restricted</h3>
+                  <p className="mt-2 max-w-md text-xs sm:text-sm leading-relaxed text-slate-300">
+                    {videoAccess.isExpired
+                      ? `Your video lecture permission expired on ${videoAccess.expiresAt?.toLocaleDateString()}. Please contact your instructor to renew access.`
+                      : "Video playback for this lesson is restricted. Request video permission from your platform instructor to unlock."}
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                    <Pill tone={videoAccess.isExpired ? "amber" : "slate"}>
+                      {videoAccess.isExpired ? "Video Expired" : "Video Locked"}
+                    </Pill>
+                    <Link
+                      href="/profile"
+                      className="rounded-full bg-white/10 px-4 py-1.5 text-xs font-bold text-white hover:bg-white/20 transition"
+                    >
+                      Check Profile Status →
+                    </Link>
+                  </div>
+                </div>
               )}
             </div>
             <div className="p-6 sm:p-8">
-              <div className="flex flex-wrap gap-2"><Pill tone="emerald">+{data.lesson.points} lesson points</Pill><Pill tone="indigo">{data.lesson.durationMinutes} min</Pill>{completed ? <Pill tone="amber">Completed</Pill> : null}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Pill tone="emerald">+{data.lesson.points} lesson points</Pill>
+                <Pill tone="indigo">{data.lesson.durationMinutes} min</Pill>
+                {videoAccess.hasAccess && videoAccess.status === "active" && videoAccess.expiresAt && (
+                  <Pill tone="emerald">Video valid until {videoAccess.expiresAt.toLocaleDateString()}</Pill>
+                )}
+                {completed ? <Pill tone="amber">Completed</Pill> : null}
+              </div>
               <h1 className="mt-5 text-4xl font-black tracking-tight">{data.lesson.title}</h1>
               <p className="mt-3 text-lg leading-8 text-slate-600">{data.lesson.description}</p>
               <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{data.lesson.concepts.map((concept) => <div key={concept} className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">{concept}</div>)}</div>

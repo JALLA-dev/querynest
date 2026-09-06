@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Footer, PublicHeader, Shell, Card, Pill, StatCard } from "@/components/ui";
-import { checkNotesAccess, requireUser } from "@/lib/auth";
+import { checkNotesAccess, checkVideoAccess, requireUser } from "@/lib/auth";
 import { getProfileData } from "@/lib/data";
 import { ensureSeeded } from "@/lib/seed";
 import { AdminSettingsClient } from "@/components/admin-settings-client";
@@ -24,6 +24,7 @@ export default async function ProfilePage({
 
   const isViewingOther = targetUserId !== authUser.id;
   const notesAccess = checkNotesAccess(data.user);
+  const videoAccess = checkVideoAccess(data.user);
 
   return (
     <Shell>
@@ -67,10 +68,10 @@ export default async function ProfilePage({
           </div>
         </Card>
 
-        {/* CLASS NOTES ACCESS PERMISSION SECTION */}
+        {/* CLASS MATERIALS PERMISSION SECTION */}
         {authUser.role === "ADMIN" && isViewingOther ? (
           <div>
-            <h2 className="text-2xl font-black text-slate-950 dark:text-white mb-4">Class Notes Permission</h2>
+            <h2 className="text-2xl font-black text-slate-950 dark:text-white mb-4">Class Materials Permissions</h2>
             <AdminStudentNotesAccess
               student={{
                 id: data.user.id,
@@ -80,47 +81,69 @@ export default async function ProfilePage({
                 notesAccessExpiresAt: data.user.notesAccessExpiresAt
                   ? new Date(data.user.notesAccessExpiresAt).toISOString()
                   : null,
+                videoAccessEnabled: Boolean(data.user.videoAccessEnabled),
+                videoAccessExpiresAt: data.user.videoAccessExpiresAt
+                  ? new Date(data.user.videoAccessExpiresAt).toISOString()
+                  : null,
               }}
             />
           </div>
         ) : (
-          <Card>
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-black text-slate-950 dark:text-white">Class Notes Access</h2>
-                  {notesAccess.status === "admin" && <Pill tone="indigo">Admin Privilege</Pill>}
-                  {notesAccess.status === "active" && <Pill tone="emerald">Access Granted</Pill>}
-                  {notesAccess.status === "expired" && <Pill tone="amber">Access Expired</Pill>}
-                  {notesAccess.status === "disabled" && <Pill tone="slate">Restricted</Pill>}
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* NOTES ACCESS CARD */}
+            <Card>
+              <div className="flex flex-col justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-black text-slate-950 dark:text-white">📝 Class Notes</h2>
+                    {notesAccess.status === "admin" && <Pill tone="indigo">Admin Access</Pill>}
+                    {notesAccess.status === "active" && <Pill tone="emerald">Unlocked</Pill>}
+                    {notesAccess.status === "expired" && <Pill tone="amber">Expired</Pill>}
+                    {notesAccess.status === "disabled" && <Pill tone="slate">Locked</Pill>}
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                    {notesAccess.status === "admin" &&
+                      "Permanent unrestricted access to all class notes and lesson materials."}
+                    {notesAccess.status === "active" &&
+                      (notesAccess.expiresAt
+                        ? `Notes access active until ${notesAccess.expiresAt.toLocaleDateString()}.`
+                        : "Permanent active access to all class notes.")}
+                    {notesAccess.status === "expired" &&
+                      `Notes access expired on ${notesAccess.expiresAt?.toLocaleDateString()}. Contact instructor to renew.`}
+                    {notesAccess.status === "disabled" &&
+                      "Class notes are protected. Request permission from your instructor to unlock."}
+                  </p>
                 </div>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  {notesAccess.status === "admin" &&
-                    "As an administrator and instructor, you have permanent unrestricted access to all class notes and lesson materials."}
-                  {notesAccess.status === "active" &&
-                    (notesAccess.expiresAt
-                      ? `Your class notes permission is active until ${notesAccess.expiresAt.toLocaleDateString()} at ${notesAccess.expiresAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
-                      : "You have permanent active access to view all study notes across Querynest classes.")}
-                  {notesAccess.status === "expired" &&
-                    `Your class notes permission expired on ${notesAccess.expiresAt?.toLocaleDateString()}. Please contact your instructor to extend or renew access.`}
-                  {notesAccess.status === "disabled" &&
-                    "Access to class notes requires permission from the platform administrator or course instructor. Reach out to your instructor to unlock study notes."}
-                </p>
               </div>
+            </Card>
 
-              {notesAccess.status === "active" ? (
-                <div className="rounded-2xl bg-emerald-50 px-5 py-3 text-center dark:bg-emerald-950/40">
-                  <span className="text-2xl">📖</span>
-                  <p className="mt-1 text-xs font-black text-emerald-800 dark:text-emerald-300">Notes Unlocked</p>
+            {/* VIDEO ACCESS CARD */}
+            <Card>
+              <div className="flex flex-col justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-black text-slate-950 dark:text-white">🎬 Class Videos</h2>
+                    {videoAccess.status === "admin" && <Pill tone="indigo">Admin Access</Pill>}
+                    {videoAccess.status === "active" && <Pill tone="emerald">Unlocked</Pill>}
+                    {videoAccess.status === "expired" && <Pill tone="amber">Expired</Pill>}
+                    {videoAccess.status === "disabled" && <Pill tone="slate">Locked</Pill>}
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                    {videoAccess.status === "admin" &&
+                      "Permanent unrestricted access to all lesson video streams and lectures."}
+                    {videoAccess.status === "active" &&
+                      (videoAccess.expiresAt
+                        ? `Video access active until ${videoAccess.expiresAt.toLocaleDateString()}.`
+                        : "Permanent active access to all lesson videos.")}
+                    {videoAccess.status === "expired" &&
+                      `Video access expired on ${videoAccess.expiresAt?.toLocaleDateString()}. Contact instructor to renew.`}
+                    {videoAccess.status === "disabled" &&
+                      "Video lectures are protected. Request permission from your instructor to unlock."}
+                  </p>
                 </div>
-              ) : notesAccess.status !== "admin" ? (
-                <div className="rounded-2xl bg-amber-50 px-5 py-3 text-center dark:bg-amber-950/40">
-                  <span className="text-2xl">🔒</span>
-                  <p className="mt-1 text-xs font-black text-amber-800 dark:text-amber-300">Notes Locked</p>
-                </div>
-              ) : null}
-            </div>
-          </Card>
+              </div>
+            </Card>
+          </div>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -113,6 +113,8 @@ async function seedUsers() {
       streak: 5,
       notesAccessEnabled: true,
       notesAccessExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      videoAccessEnabled: true,
+      videoAccessExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
   ]).onConflictDoNothing();
 }

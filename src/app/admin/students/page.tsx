@@ -28,6 +28,10 @@ export default async function AdminStudentsPage() {
     notesAccessExpiresAt: s.notesAccessExpiresAt
       ? new Date(s.notesAccessExpiresAt).toISOString()
       : null,
+    videoAccessEnabled: Boolean(s.videoAccessEnabled),
+    videoAccessExpiresAt: s.videoAccessExpiresAt
+      ? new Date(s.videoAccessExpiresAt).toISOString()
+      : null,
     createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : null,
   }));
 

@@ -394,19 +394,47 @@ export async function listStudentsForAdmin() {
   }));
 }
 
-export async function updateStudentNotesAccess(studentId: string, enabled: boolean, expiresAt: Date | null) {
+export async function updateStudentPermissions(
+  studentId: string,
+  permissions: {
+    notesAccessEnabled?: boolean;
+    notesAccessExpiresAt?: Date | null;
+    videoAccessEnabled?: boolean;
+    videoAccessExpiresAt?: Date | null;
+  }
+) {
   await ensureSchema();
+  const updatePayload: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+
+  if (permissions.notesAccessEnabled !== undefined) {
+    updatePayload.notesAccessEnabled = permissions.notesAccessEnabled;
+  }
+  if (permissions.notesAccessExpiresAt !== undefined) {
+    updatePayload.notesAccessExpiresAt = permissions.notesAccessExpiresAt;
+  }
+  if (permissions.videoAccessEnabled !== undefined) {
+    updatePayload.videoAccessEnabled = permissions.videoAccessEnabled;
+  }
+  if (permissions.videoAccessExpiresAt !== undefined) {
+    updatePayload.videoAccessExpiresAt = permissions.videoAccessExpiresAt;
+  }
+
   const [updated] = await db
     .update(users)
-    .set({
-      notesAccessEnabled: enabled,
-      notesAccessExpiresAt: expiresAt,
-      updatedAt: new Date(),
-    })
+    .set(updatePayload)
     .where(eq(users.id, studentId))
     .returning();
 
   return updated ?? null;
+}
+
+export async function updateStudentNotesAccess(studentId: string, enabled: boolean, expiresAt: Date | null) {
+  return updateStudentPermissions(studentId, {
+    notesAccessEnabled: enabled,
+    notesAccessExpiresAt: expiresAt,
+  });
 }
 
 export async function getStudentDetailForAdmin(studentId: string) {

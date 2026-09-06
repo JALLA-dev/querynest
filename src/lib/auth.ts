@@ -23,6 +23,8 @@ export type AuthUser = {
   streak: number;
   notesAccessEnabled?: boolean;
   notesAccessExpiresAt?: Date | null;
+  videoAccessEnabled?: boolean;
+  videoAccessExpiresAt?: Date | null;
 };
 
 function encodePayload(payload: SessionPayload) {
@@ -93,6 +95,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       streak: users.streak,
       notesAccessEnabled: users.notesAccessEnabled,
       notesAccessExpiresAt: users.notesAccessExpiresAt,
+      videoAccessEnabled: users.videoAccessEnabled,
+      videoAccessExpiresAt: users.videoAccessExpiresAt,
     })
     .from(users)
     .where(eq(users.id, session.userId))
@@ -117,12 +121,15 @@ export function isAdmin(user: AuthUser | null) {
   return user?.role === "ADMIN";
 }
 
-export type NotesAccessResult = {
+export type AccessResult = {
   hasAccess: boolean;
   isExpired: boolean;
   status: "admin" | "active" | "expired" | "disabled";
   expiresAt: Date | null;
 };
+
+export type NotesAccessResult = AccessResult;
+export type VideoAccessResult = AccessResult;
 
 export function checkNotesAccess(user?: {
   role?: string | null;
@@ -150,7 +157,42 @@ export function checkNotesAccess(user?: {
 
   const expiry = new Date(user.notesAccessExpiresAt);
   if (isNaN(expiry.getTime())) {
-    // If invalid date, grant access as fallback
+    return { hasAccess: true, isExpired: false, status: "active", expiresAt: null };
+  }
+
+  if (expiry.getTime() <= Date.now()) {
+    return { hasAccess: false, isExpired: true, status: "expired", expiresAt: expiry };
+  }
+
+  return { hasAccess: true, isExpired: false, status: "active", expiresAt: expiry };
+}
+
+export function checkVideoAccess(user?: {
+  role?: string | null;
+  videoAccessEnabled?: boolean | null;
+  videoAccessExpiresAt?: Date | string | null;
+} | null): VideoAccessResult {
+  if (!user) {
+    return { hasAccess: false, isExpired: false, status: "disabled", expiresAt: null };
+  }
+
+  // Admins always have unconditional access to videos
+  if (user.role === "ADMIN") {
+    return { hasAccess: true, isExpired: false, status: "admin", expiresAt: null };
+  }
+
+  // If permission switch is off
+  if (!user.videoAccessEnabled) {
+    return { hasAccess: false, isExpired: false, status: "disabled", expiresAt: null };
+  }
+
+  // If no expiration date set, access is lifetime/ongoing
+  if (!user.videoAccessExpiresAt) {
+    return { hasAccess: true, isExpired: false, status: "active", expiresAt: null };
+  }
+
+  const expiry = new Date(user.videoAccessExpiresAt);
+  if (isNaN(expiry.getTime())) {
     return { hasAccess: true, isExpired: false, status: "active", expiresAt: null };
   }
 

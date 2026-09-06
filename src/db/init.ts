@@ -34,6 +34,8 @@ const schemaStatements: string[] = [
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS tasks_solved integer DEFAULT 0;`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS notes_access_enabled boolean DEFAULT false;`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS notes_access_expires_at timestamp with time zone;`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS video_access_enabled boolean DEFAULT false;`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS video_access_expires_at timestamp with time zone;`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at timestamp with time zone;`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone DEFAULT now();`,
@@ -454,22 +456,35 @@ const schemaStatements: string[] = [
 ];
 
 async function runSchemaInit(): Promise<void> {
-  // Execute each statement individually so a failure in one cannot abort the others
-  for (const stmt of schemaStatements) {
-    try {
-      // pool.query without values uses PostgreSQL Simple Query Protocol
-      await pool.query(stmt);
-    } catch (err: unknown) {
-      const error = err as { code?: string; message?: string };
-      // Ignore benign notices (e.g. relation already exists, column does not exist on DROP NOT NULL)
-      if (error?.code !== "42703" && error?.code !== "42P07" && error?.code !== "42701") {
-        console.warn("[ensureSchema] DDL notice:", error?.message);
+  const globalObj = globalThis as typeof globalThis & { __querynestSchemaEnsured?: boolean };
+  if (globalObj.__querynestSchemaEnsured) return;
+
+  try {
+    // Execute all statements in a single network round-trip for blazing fast performance
+    await pool.query(schemaStatements.join("\n"));
+    globalObj.__querynestSchemaEnsured = true;
+  } catch (batchErr) {
+    // If multi-statement fails, fallback to resilient individual execution
+    for (const stmt of schemaStatements) {
+      try {
+        await pool.query(stmt);
+      } catch (err: unknown) {
+        const error = err as { code?: string; message?: string };
+        if (error?.code !== "42703" && error?.code !== "42P07" && error?.code !== "42701") {
+          // ignore benign DDL notices
+        }
       }
     }
+    globalObj.__querynestSchemaEnsured = true;
   }
 }
 
 export function ensureSchema(): Promise<void> {
+  const globalObj = globalThis as typeof globalThis & { __querynestSchemaEnsured?: boolean };
+  if (globalObj.__querynestSchemaEnsured) {
+    return Promise.resolve();
+  }
+
   if (!initPromise) {
     initPromise = runSchemaInit().catch((err) => {
       initPromise = null;
