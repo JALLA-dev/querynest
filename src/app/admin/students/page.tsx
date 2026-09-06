@@ -1,6 +1,6 @@
 import { AdminNav, Shell } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
-import { listStudentsForAdmin, levelFromPoints } from "@/lib/data";
+import { listStudentsForAdmin } from "@/lib/data";
 import { ensureSeeded } from "@/lib/seed";
 import { AdminStudentsClient } from "@/components/admin-students-client";
 
@@ -9,7 +9,28 @@ export const dynamic = "force-dynamic";
 export default async function AdminStudentsPage() {
   await ensureSeeded();
   await requireAdmin();
-  const students = await listStudentsForAdmin();
+
+  let rawStudents: Awaited<ReturnType<typeof listStudentsForAdmin>> = [];
+  try {
+    rawStudents = await listStudentsForAdmin();
+  } catch (err) {
+    console.error("[AdminStudentsPage] listStudentsForAdmin notice:", err);
+  }
+
+  // Ensure fully JSON-serializable primitives for Client Component boundary
+  const students = rawStudents.map((s) => ({
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    totalPoints: Number(s.totalPoints || 0),
+    streak: Number(s.streak || 0),
+    notesAccessEnabled: Boolean(s.notesAccessEnabled),
+    notesAccessExpiresAt: s.notesAccessExpiresAt
+      ? new Date(s.notesAccessExpiresAt).toISOString()
+      : null,
+    createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : null,
+  }));
+
   return (
     <Shell>
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
@@ -26,7 +47,7 @@ export default async function AdminStudentsPage() {
               Manage student enrollments, monitor points and levels, and grant or revoke Class Notes access permissions with custom expiration dates.
             </p>
           </div>
-          <AdminStudentsClient students={students} levelFromPoints={levelFromPoints} />
+          <AdminStudentsClient students={students} />
         </section>
       </main>
     </Shell>

@@ -12,16 +12,23 @@ export type AdminStudentItem = {
   totalPoints: number;
   streak: number;
   notesAccessEnabled?: boolean | null;
-  notesAccessExpiresAt?: Date | string | null;
-  createdAt?: Date | string;
+  notesAccessExpiresAt?: string | null;
+  createdAt?: string | null;
 };
+
+function levelFromPoints(points: number) {
+  if (points >= 1000) return "SQL Master";
+  if (points >= 600) return "SQL Developer";
+  if (points >= 300) return "SQL Practitioner";
+  if (points >= 100) return "SQL Explorer";
+  return "SQL Beginner";
+}
 
 type Props = {
   students: AdminStudentItem[];
-  levelFromPoints: (pts: number) => string;
 };
 
-export function AdminStudentsClient({ students: initialStudents, levelFromPoints }: Props) {
+export function AdminStudentsClient({ students: initialStudents }: Props) {
   const [students, setStudents] = useState<AdminStudentItem[]>(initialStudents);
   const [search, setSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<AdminStudentItem | null>(null);
@@ -53,11 +60,12 @@ export function AdminStudentsClient({ students: initialStudents, levelFromPoints
   };
 
   const handleUpdate = (studentId: string, enabled: boolean, expiresAt: Date | null) => {
+    const expStr = expiresAt ? expiresAt.toISOString() : null;
     setStudents((prev) =>
-      prev.map((s) => (s.id === studentId ? { ...s, notesAccessEnabled: enabled, notesAccessExpiresAt: expiresAt } : s))
+      prev.map((s) => (s.id === studentId ? { ...s, notesAccessEnabled: enabled, notesAccessExpiresAt: expStr } : s))
     );
     if (selectedStudent && selectedStudent.id === studentId) {
-      setSelectedStudent((prev) => (prev ? { ...prev, notesAccessEnabled: enabled, notesAccessExpiresAt: expiresAt } : null));
+      setSelectedStudent((prev) => (prev ? { ...prev, notesAccessEnabled: enabled, notesAccessExpiresAt: expStr } : null));
     }
   };
 

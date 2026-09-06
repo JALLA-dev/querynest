@@ -70,7 +70,17 @@ export default async function AdminStudentDetailPage({
             <h2 className="text-2xl font-black text-slate-950 dark:text-white mb-4">
               Class Notes Access Management
             </h2>
-            <AdminStudentNotesAccess student={student} />
+            <AdminStudentNotesAccess
+              student={{
+                id: student.id,
+                name: student.name,
+                email: student.email,
+                notesAccessEnabled: Boolean(student.notesAccessEnabled),
+                notesAccessExpiresAt: student.notesAccessExpiresAt
+                  ? new Date(student.notesAccessExpiresAt).toISOString()
+                  : null,
+              }}
+            />
           </div>
 
           {/* Student Stats */}

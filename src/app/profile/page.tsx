@@ -71,7 +71,17 @@ export default async function ProfilePage({
         {authUser.role === "ADMIN" && isViewingOther ? (
           <div>
             <h2 className="text-2xl font-black text-slate-950 dark:text-white mb-4">Class Notes Permission</h2>
-            <AdminStudentNotesAccess student={data.user} />
+            <AdminStudentNotesAccess
+              student={{
+                id: data.user.id,
+                name: data.user.name,
+                email: data.user.email,
+                notesAccessEnabled: Boolean(data.user.notesAccessEnabled),
+                notesAccessExpiresAt: data.user.notesAccessExpiresAt
+                  ? new Date(data.user.notesAccessExpiresAt).toISOString()
+                  : null,
+              }}
+            />
           </div>
         ) : (
           <Card>
