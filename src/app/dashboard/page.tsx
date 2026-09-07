@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Footer, PublicHeader, Shell, Card, StatCard, ProgressBar, Pill, EmptyState } from "@/components/ui";
+import { BinduStudentCard } from "@/components/bindu-agent";
 import { requireUser } from "@/lib/auth";
 import { ensureSeeded } from "@/lib/seed";
 import { getDashboardData, getPublishedCourses, getAllQuizzesForStudent } from "@/lib/data";
@@ -123,23 +124,27 @@ export default async function DashboardPage() {
             )}
           </Card>
 
-          <Card>
-            <h2 className="text-2xl font-black text-slate-950 dark:text-white">Proficiency Summary</h2>
-            <div className="mt-5 grid place-items-center rounded-[2rem] bg-gradient-to-br from-emerald-500/10 to-indigo-500/10 p-8 text-center dark:bg-slate-950/60 dark:border dark:border-slate-800">
-              <p className="text-6xl font-black text-slate-950 dark:text-white">{dashboard.stats.overallProgress}%</p>
-              <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">Average syllabus completion</p>
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
-              <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800/60">
-                Tasks Completed
-                <b className="mt-1 block text-2xl text-slate-950 dark:text-white">{dashboard.stats.tasksCompleted}</b>
+          <div className="space-y-6">
+            <BinduStudentCard />
+
+            <Card>
+              <h2 className="text-2xl font-black text-slate-950 dark:text-white">Proficiency Summary</h2>
+              <div className="mt-5 grid place-items-center rounded-[2rem] bg-gradient-to-br from-emerald-500/10 to-indigo-500/10 p-8 text-center dark:bg-slate-950/60 dark:border dark:border-slate-800">
+                <p className="text-6xl font-black text-slate-950 dark:text-white">{dashboard.stats.overallProgress}%</p>
+                <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">Average syllabus completion</p>
               </div>
-              <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800/60">
-                Quiz Points Earned
-                <b className="mt-1 block text-2xl text-slate-950 dark:text-white">{dashboard.stats.quizPoints}</b>
+              <div className="mt-6 grid grid-cols-2 gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
+                <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800/60">
+                  Tasks Completed
+                  <b className="mt-1 block text-2xl text-slate-950 dark:text-white">{dashboard.stats.tasksCompleted}</b>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800/60">
+                  Quiz Points Earned
+                  <b className="mt-1 block text-2xl text-slate-950 dark:text-white">{dashboard.stats.quizPoints}</b>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </div>
 
         {/* Recommended Quizzes Section */}
