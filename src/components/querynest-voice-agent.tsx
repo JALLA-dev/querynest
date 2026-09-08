@@ -18,6 +18,8 @@ export function QuerynestVoiceAgent() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
+  const [hasAiAccess, setHasAiAccess] = useState<boolean | null>(null);
+  const [aiAccessMessage, setAiAccessMessage] = useState<string>("");
   const [greetingGiven, setGreetingGiven] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -30,17 +32,44 @@ export function QuerynestVoiceAgent() {
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch logged-in user profile to wish them by name
+  // Fetch logged-in user profile to wish them by name & check permission
   useEffect(() => {
     async function loadUser() {
       try {
         const res = await fetch("/api/profile");
         const data = await res.json();
-        if (data?.user?.name) {
+        if (data?.user) {
           setUserName(data.user.name);
+          if (data.user.role === "ADMIN") {
+            setHasAiAccess(true);
+          } else if (data.user.aiAccess) {
+            setHasAiAccess(data.user.aiAccess.hasAccess);
+            if (!data.user.aiAccess.hasAccess) {
+              if (data.user.aiAccess.isExpired) {
+                setAiAccessMessage(
+                  `Your AI Agent access expired on ${new Date(
+                    data.user.aiAccess.expiresAt
+                  ).toLocaleDateString()}. Please contact your instructor to renew.`
+                );
+              } else {
+                setAiAccessMessage(
+                  "AI Agent & Voice Copilot requires instructor permission. Please contact your instructor to get access."
+                );
+              }
+            }
+          } else {
+            setHasAiAccess(false);
+            setAiAccessMessage("Please contact your instructor to get access.");
+          }
+        } else {
+          setHasAiAccess(false);
+          setAiAccessMessage(
+            "Please log in and contact your instructor to unlock AI Agent access."
+          );
         }
       } catch {
-        // Guest or unauthenticated
+        setHasAiAccess(false);
+        setAiAccessMessage("Please contact your instructor to get access.");
       }
     }
     loadUser();
@@ -60,7 +89,14 @@ export function QuerynestVoiceAgent() {
     if (!greetingGiven && messages.length === 0) {
       const timeWish = getTimeGreeting();
       const displayName = userName ? userName.split(" ")[0] : "Student";
-      const welcomeText = `${timeWish}, ${displayName}! 👋 Welcome to **QueryNest**.\n\nI'm your personal SQL AI Tutor & Voice Assistant. You can ask me any SQL question, practice doubts, or tell me to write queries. You can also talk to me using voice! 🎙️`;
+
+      let welcomeText = `${timeWish}, ${displayName}! 👋 Welcome to **QueryNest**.\n\nI'm your personal SQL AI Tutor & Voice Assistant. You can ask me any SQL question, practice doubts, or tell me to write queries. You can also talk to me using voice! 🎙️`;
+
+      if (hasAiAccess === false) {
+        welcomeText = `${timeWish}, ${displayName}! 👋\n\n🔒 **AI Agent Access Restricted**\n\n${
+          aiAccessMessage || "Please contact your instructor to unlock AI Agent access."
+        }`;
+      }
 
       const initialMsg: ChatMessage = {
         id: "welcome",
@@ -71,7 +107,7 @@ export function QuerynestVoiceAgent() {
       setMessages([initialMsg]);
       setGreetingGiven(true);
 
-      if (autoVoice) {
+      if (autoVoice && hasAiAccess !== false) {
         speakText(`${timeWish} ${displayName}! Welcome to QueryNest. I'm your SQL AI Tutor. How can I help you today?`);
       }
     }
@@ -100,7 +136,6 @@ export function QuerynestVoiceAgent() {
           if (transcript) {
             setInput(transcript);
             setIsListening(false);
-            // Automatically send spoken question
             handleSend(transcript);
           }
         };
@@ -116,10 +151,14 @@ export function QuerynestVoiceAgent() {
         recognitionRef.current = recognition;
       }
     }
-  }, [autoVoice]);
+  }, [autoVoice, hasAiAccess]);
 
   // Voice toggle: start/stop speech recognition
   function toggleVoiceInput() {
+    if (hasAiAccess === false) {
+      alert("AI Agent access is locked. Please contact your instructor to get access.");
+      return;
+    }
     if (!recognitionRef.current) {
       alert("Voice input is not supported in this browser. Please use Chrome, Edge, or Safari.");
       return;
@@ -139,11 +178,10 @@ export function QuerynestVoiceAgent() {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
 
-    // Clean markdown symbols for cleaner speech
     const cleanText = textToSpeak
       .replace(/```[\s\S]*?```/g, "Here is the SQL query shown below.")
       .replace(/[*_`#]/g, "")
-      .replace(/💡|👋|⚡|✍️|🤖|🎙️/g, "");
+      .replace(/💡|👋|⚡|✍️|🤖|🎙️|🔒/g, "");
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.0;
@@ -168,6 +206,19 @@ export function QuerynestVoiceAgent() {
     const text = (promptText ?? input).trim();
     if (!text || loading) return;
 
+    if (hasAiAccess === false) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `lock-${Date.now()}`,
+          sender: "agent",
+          text: `🔒 **Permission Required**\n\n${aiAccessMessage || "Please contact your instructor to unlock AI Agent access."}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+      return;
+    }
+
     stopSpeaking();
 
     const userMsg: ChatMessage = {
@@ -188,7 +239,26 @@ export function QuerynestVoiceAgent() {
         body: JSON.stringify({ prompt: text }),
       });
 
-      const data: AgentResponse = await res.json();
+      const data: AgentResponse & { hasAiAccess?: boolean; error?: string } = await res.json();
+
+      if (res.status === 403 || data.hasAiAccess === false) {
+        setHasAiAccess(false);
+        setAiAccessMessage(
+          data.reply || "Please contact your instructor to get access to the AI Agent."
+        );
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `denied-${Date.now()}`,
+            sender: "agent",
+            text:
+              data.reply ||
+              "🔒 **AI Agent Access Restricted**\n\nPlease contact your instructor or platform administrator to unlock access.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+        return;
+      }
 
       const agentMsg: ChatMessage = {
         id: `agent-${Date.now()}`,
@@ -202,7 +272,6 @@ export function QuerynestVoiceAgent() {
 
       setMessages((prev) => [...prev, agentMsg]);
 
-      // Speak response if autoVoice is on
       if (autoVoice) {
         speakText(data.reply);
       }
@@ -231,7 +300,6 @@ export function QuerynestVoiceAgent() {
   function injectQueryToPractice(sql: string, autoRun = false) {
     if (typeof window === "undefined") return;
 
-    // Send custom event for practice sandbox
     window.dispatchEvent(
       new CustomEvent("querynest-inject-sql", {
         detail: { sql, autoRun },
@@ -258,26 +326,30 @@ export function QuerynestVoiceAgent() {
             className="relative flex items-center justify-center size-14 rounded-2xl bg-gradient-to-tr from-slate-950 via-slate-900 to-emerald-950 text-white shadow-2xl shadow-emerald-950/40 ring-2 ring-emerald-500/40 transition-all duration-300 hover:scale-110 hover:ring-emerald-400 hover:shadow-emerald-500/30 active:scale-95 dark:from-emerald-950 dark:via-slate-900 dark:to-slate-950 dark:ring-emerald-400/50"
             title="Open QueryNest AI Voice Tutor"
           >
-            {/* Pulsing glow ring */}
             <span className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 opacity-30 blur-sm transition group-hover:opacity-60 animate-pulse" />
 
-            {/* QueryNest Logo Mark */}
             <span className="relative font-black text-lg tracking-tight text-emerald-400 font-mono">
               QN
             </span>
 
-            {/* Online Live Badge with Mic Indicator */}
             <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex size-3 rounded-full border-2 border-slate-950 bg-emerald-500"></span>
+              <span
+                className={`relative inline-flex size-3 rounded-full border-2 border-slate-950 ${
+                  hasAiAccess === false ? "bg-amber-500" : "bg-emerald-500"
+                }`}
+              ></span>
             </span>
           </button>
 
-          {/* Floating Hover Badge */}
           <div className="pointer-events-none absolute bottom-16 right-0 w-48 rounded-xl border border-emerald-500/30 bg-slate-950/90 px-3 py-1.5 text-center text-xs text-white shadow-xl backdrop-blur-md opacity-0 transition group-hover:opacity-100">
             <p className="font-bold text-emerald-300">QueryNest AI Tutor</p>
             <p className="text-[10px] text-slate-400">
-              {userName ? `Click for personal help, ${userName.split(" ")[0]}!` : "Voice & SQL doubts assistant"}
+              {hasAiAccess === false
+                ? "Permission required • Contact instructor"
+                : userName
+                ? `Click for personal help, ${userName.split(" ")[0]}!`
+                : "Voice & SQL doubts assistant"}
             </p>
           </div>
         </div>
@@ -289,7 +361,6 @@ export function QuerynestVoiceAgent() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent px-5 py-4 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              {/* QueryNest Brand Badge */}
               <div className="grid size-10 place-items-center rounded-2xl bg-slate-950 text-sm font-black text-emerald-400 shadow-md ring-1 ring-emerald-500/30 dark:bg-emerald-500/20">
                 QN
               </div>
@@ -298,8 +369,14 @@ export function QuerynestVoiceAgent() {
                   <h3 className="text-sm font-black text-slate-950 dark:text-white">
                     QueryNest AI
                   </h3>
-                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                    Voice Agent
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                      hasAiAccess === false
+                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                        : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                    }`}
+                  >
+                    {hasAiAccess === false ? "🔒 Locked" : "Voice Agent"}
                   </span>
                 </div>
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -309,24 +386,24 @@ export function QuerynestVoiceAgent() {
             </div>
 
             <div className="flex items-center gap-1.5">
-              {/* Auto Voice Read Toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (isSpeaking) stopSpeaking();
-                  setAutoVoice(!autoVoice);
-                }}
-                className={`rounded-xl p-2 text-xs transition ${
-                  autoVoice
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                    : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                }`}
-                title={autoVoice ? "Voice Read Aloud: ON" : "Voice Read Aloud: OFF"}
-              >
-                {autoVoice ? "🔊" : "🔇"}
-              </button>
+              {hasAiAccess !== false && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSpeaking) stopSpeaking();
+                    setAutoVoice(!autoVoice);
+                  }}
+                  className={`rounded-xl p-2 text-xs transition ${
+                    autoVoice
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                  title={autoVoice ? "Voice Read Aloud: ON" : "Voice Read Aloud: OFF"}
+                >
+                  {autoVoice ? "🔊" : "🔇"}
+                </button>
+              )}
 
-              {/* Close Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -341,7 +418,24 @@ export function QuerynestVoiceAgent() {
             </div>
           </div>
 
-          {/* Voice Wave Animation Banner (When Speaking) */}
+          {/* Locked State Warning Banner */}
+          {hasAiAccess === false && (
+            <div className="m-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-center dark:bg-amber-950/30">
+              <span className="text-2xl block mb-1">🔒</span>
+              <b className="text-xs font-black text-amber-900 dark:text-amber-200 block">
+                Instructor Permission Required
+              </b>
+              <p className="mt-1 text-[11px] text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                {aiAccessMessage ||
+                  "AI Agent & Voice Copilot access is restricted. Please contact your instructor to get access."}
+              </p>
+              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-200/80 px-3 py-1 text-[10px] font-bold text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
+                👑 Contact your instructor to unlock
+              </div>
+            </div>
+          )}
+
+          {/* Voice Wave Animation Banner */}
           {isSpeaking && (
             <div className="flex items-center justify-between bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 border-b border-emerald-500/20">
               <div className="flex items-center gap-2">
@@ -363,7 +457,7 @@ export function QuerynestVoiceAgent() {
             </div>
           )}
 
-          {/* Listening Banner (When Mic is Active) */}
+          {/* Listening Banner */}
           {isListening && (
             <div className="flex items-center justify-between bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-700 dark:text-rose-300 border-b border-rose-500/20 animate-pulse">
               <div className="flex items-center gap-2">
@@ -398,7 +492,6 @@ export function QuerynestVoiceAgent() {
                 >
                   <div className="whitespace-pre-wrap font-sans">{m.text}</div>
 
-                  {/* SQL Code Block with Live Actions */}
                   {m.suggestedSql && (
                     <div className="mt-3 rounded-xl border border-emerald-500/20 bg-slate-950 p-3 text-emerald-300">
                       <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
@@ -417,7 +510,6 @@ export function QuerynestVoiceAgent() {
                         {m.suggestedSql}
                       </pre>
 
-                      {/* Action Buttons to connect to Practice Panel */}
                       <div className="mt-3 flex flex-wrap gap-2 pt-2 border-t border-slate-800">
                         <button
                           type="button"
@@ -437,10 +529,9 @@ export function QuerynestVoiceAgent() {
                     </div>
                   )}
 
-                  {/* Message Bottom Toolbar: Speak button & Timestamp */}
                   <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
                     <span>{m.timestamp}</span>
-                    {m.sender === "agent" && (
+                    {m.sender === "agent" && hasAiAccess !== false && (
                       <button
                         type="button"
                         onClick={() => speakText(m.text)}
@@ -464,25 +555,27 @@ export function QuerynestVoiceAgent() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Questions Suggestions */}
-          <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex gap-1.5 overflow-x-auto pb-1 text-[11px]">
-              {[
-                "Find employees salary > 60k",
-                "Explain WHERE vs HAVING",
-                "Top students by score",
-              ].map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => handleSend(q)}
-                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700 hover:border-emerald-400 hover:text-emerald-600 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-300"
-                >
-                  💬 {q}
-                </button>
-              ))}
+          {/* Quick Questions Suggestions (Only if allowed) */}
+          {hasAiAccess !== false && (
+            <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 text-[11px]">
+                {[
+                  "Find employees salary > 60k",
+                  "Explain WHERE vs HAVING",
+                  "Top students by score",
+                ].map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => handleSend(q)}
+                    className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700 hover:border-emerald-400 hover:text-emerald-600 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-300"
+                  >
+                    💬 {q}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Input Footer with Microphone & Send */}
           <form
@@ -492,16 +585,24 @@ export function QuerynestVoiceAgent() {
             }}
             className="flex items-center gap-2 border-t border-slate-100 p-4 dark:border-slate-800"
           >
-            {/* Voice Input Microphone Button */}
             <button
               type="button"
               onClick={toggleVoiceInput}
+              disabled={hasAiAccess === false}
               className={`relative flex size-10 shrink-0 items-center justify-center rounded-xl transition ${
                 isListening
                   ? "bg-rose-500 text-white shadow-lg shadow-rose-500/40 animate-pulse"
+                  : hasAiAccess === false
+                  ? "border border-slate-200 bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed dark:border-slate-800 dark:bg-slate-800"
                   : "border border-slate-200 bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-emerald-950 dark:hover:text-emerald-400"
               }`}
-              title={isListening ? "Stop listening" : "Click to talk (Voice input)"}
+              title={
+                hasAiAccess === false
+                  ? "Contact your instructor to get access"
+                  : isListening
+                  ? "Stop listening"
+                  : "Click to talk (Voice input)"
+              }
             >
               🎙️
             </button>
@@ -510,15 +611,19 @@ export function QuerynestVoiceAgent() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask SQL doubt or click mic to talk..."
-              disabled={loading}
-              className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none ring-emerald-400 transition placeholder:text-slate-400 focus:ring-2 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+              placeholder={
+                hasAiAccess === false
+                  ? "Access locked. Contact your instructor."
+                  : "Ask SQL doubt or click mic to talk..."
+              }
+              disabled={loading || hasAiAccess === false}
+              className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none ring-emerald-400 transition placeholder:text-slate-400 focus:ring-2 dark:border-slate-800 dark:bg-slate-950 dark:text-white disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-900 dark:disabled:text-slate-600 disabled:cursor-not-allowed"
             />
 
             <button
               type="submit"
-              disabled={loading || !input.trim()}
-              className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-black text-white shadow-md shadow-emerald-600/25 transition hover:opacity-90 disabled:opacity-50"
+              disabled={loading || !input.trim() || hasAiAccess === false}
+              className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-black text-white shadow-md shadow-emerald-600/25 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Send
             </button>

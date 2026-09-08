@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AgentResponse } from "@/lib/ai-agent/sql-agent";
 
 interface SqlAiAgentPanelProps {
@@ -33,6 +33,8 @@ export function SqlAiAgentPanel({
   onInjectQuery,
   onAutoRunQuery,
 }: SqlAiAgentPanelProps) {
+  const [hasAiAccess, setHasAiAccess] = useState<boolean | null>(null);
+  const [aiAccessMessage, setAiAccessMessage] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "intro",
@@ -45,9 +47,62 @@ export function SqlAiAgentPanel({
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Check student AI permissions on load
+  useEffect(() => {
+    async function checkPermission() {
+      try {
+        const res = await fetch("/api/profile");
+        const data = await res.json();
+        if (data?.user) {
+          if (data.user.role === "ADMIN") {
+            setHasAiAccess(true);
+          } else if (data.user.aiAccess) {
+            setHasAiAccess(data.user.aiAccess.hasAccess);
+            if (!data.user.aiAccess.hasAccess) {
+              if (data.user.aiAccess.isExpired) {
+                setAiAccessMessage(
+                  `Your AI Agent access expired on ${new Date(
+                    data.user.aiAccess.expiresAt
+                  ).toLocaleDateString()}. Please contact your instructor to renew.`
+                );
+              } else {
+                setAiAccessMessage(
+                  "AI Agent & Practice Copilot access requires instructor permission. Please contact your instructor to get access."
+                );
+              }
+            }
+          } else {
+            setHasAiAccess(false);
+            setAiAccessMessage("Please contact your instructor to get access.");
+          }
+        } else {
+          setHasAiAccess(false);
+          setAiAccessMessage("Please log in and contact your instructor to unlock AI Agent access.");
+        }
+      } catch {
+        setHasAiAccess(false);
+        setAiAccessMessage("Please contact your instructor to get access.");
+      }
+    }
+    checkPermission();
+  }, []);
+
   async function handleSend(promptText?: string) {
     const textToSend = (promptText ?? input).trim();
     if (!textToSend || loading) return;
+
+    if (hasAiAccess === false) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `lock-${Date.now()}`,
+          sender: "agent",
+          text: `🔒 **Permission Required**\n\n${aiAccessMessage || "Please contact your instructor to unlock AI Agent access."}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -67,7 +122,22 @@ export function SqlAiAgentPanel({
         body: JSON.stringify({ prompt: textToSend }),
       });
 
-      const data: AgentResponse = await res.json();
+      const data: AgentResponse & { hasAiAccess?: boolean; error?: string } = await res.json();
+
+      if (res.status === 403 || data.hasAiAccess === false) {
+        setHasAiAccess(false);
+        setAiAccessMessage(data.reply || "Please contact your instructor to get access to the AI Agent.");
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `denied-${Date.now()}`,
+            sender: "agent",
+            text: data.reply || "🔒 Please contact your instructor to get access to the AI Agent.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+        return;
+      }
 
       const agentMsg: ChatMessage = {
         id: `agent-${Date.now()}`,
@@ -110,42 +180,73 @@ export function SqlAiAgentPanel({
             🤖
             <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+              <span
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                  hasAiAccess === false ? "bg-amber-500" : "bg-emerald-500"
+                }`}
+              ></span>
             </span>
           </div>
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-black text-slate-950 dark:text-white">SQL AI Agent</h3>
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                Live Copilot
+              <span
+                className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                  hasAiAccess === false
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                }`}
+              >
+                {hasAiAccess === false ? "🔒 Locked" : "Live Copilot"}
               </span>
             </div>
             <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-              Answers doubts, writes & runs queries automatically
+              {hasAiAccess === false
+                ? "Instructor permission required"
+                : "Answers doubts, writes & runs queries automatically"}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Quick Prompt Suggestions */}
-      <div className="pt-3 pb-2">
-        <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1.5">
-          Try asking:
-        </p>
-        <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
-          {STARTER_PROMPTS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => handleSend(p)}
-              disabled={loading}
-              className="rounded-full border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-500 dark:hover:text-emerald-300 disabled:opacity-50"
-            >
-              💡 {p}
-            </button>
-          ))}
+      {/* Warning Card when AI is locked */}
+      {hasAiAccess === false && (
+        <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-center dark:bg-amber-950/30">
+          <span className="text-2xl block mb-1">🔒</span>
+          <b className="text-xs font-black text-amber-900 dark:text-amber-200 block">
+            Instructor Permission Required
+          </b>
+          <p className="mt-1 text-[11px] text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+            {aiAccessMessage ||
+              "AI Tutor & Practice Copilot access is restricted. Please contact your instructor to unlock AI Agent access."}
+          </p>
+          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-200/80 px-3 py-1 text-[10px] font-bold text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
+            👑 Contact your instructor to get access
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Quick Prompt Suggestions (Only when allowed) */}
+      {hasAiAccess !== false && (
+        <div className="pt-3 pb-2">
+          <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1.5">
+            Try asking:
+          </p>
+          <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+            {STARTER_PROMPTS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => handleSend(p)}
+                disabled={loading}
+                className="rounded-full border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-500 dark:hover:text-emerald-300 disabled:opacity-50"
+              >
+                💡 {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Messages List */}
       <div className="flex-1 space-y-3.5 overflow-y-auto py-3 pr-1 max-h-[420px] text-xs leading-relaxed">
@@ -167,7 +268,6 @@ export function SqlAiAgentPanel({
                 {m.text}
               </div>
 
-              {/* Suggested SQL Card with Action Buttons */}
               {m.suggestedSql && (
                 <div className="mt-3 rounded-xl border border-emerald-500/20 bg-slate-950 p-3 text-emerald-300">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
@@ -186,7 +286,6 @@ export function SqlAiAgentPanel({
                     {m.suggestedSql}
                   </pre>
 
-                  {/* One-Click Action Buttons to interact directly with the editor */}
                   <div className="mt-3 flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
                     <button
                       type="button"
@@ -239,14 +338,18 @@ export function SqlAiAgentPanel({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question or describe a query to write..."
-          disabled={loading}
-          className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 outline-none ring-emerald-400 transition placeholder:text-slate-400 focus:ring-2 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+          placeholder={
+            hasAiAccess === false
+              ? "Access locked. Contact your instructor."
+              : "Ask a question or describe a query to write..."
+          }
+          disabled={loading || hasAiAccess === false}
+          className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 outline-none ring-emerald-400 transition placeholder:text-slate-400 focus:ring-2 dark:border-slate-800 dark:bg-slate-950 dark:text-white disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-900 dark:disabled:text-slate-600 disabled:cursor-not-allowed"
         />
         <button
           type="submit"
-          disabled={loading || !input.trim()}
-          className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-emerald-600/25 transition hover:opacity-90 disabled:opacity-50"
+          disabled={loading || !input.trim() || hasAiAccess === false}
+          className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-emerald-600/25 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "..." : "Send"}
         </button>

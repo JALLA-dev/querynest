@@ -32,6 +32,10 @@ export default async function AdminStudentsPage() {
     videoAccessExpiresAt: s.videoAccessExpiresAt
       ? new Date(s.videoAccessExpiresAt).toISOString()
       : null,
+    aiAccessEnabled: Boolean(s.aiAccessEnabled),
+    aiAccessExpiresAt: s.aiAccessExpiresAt
+      ? new Date(s.aiAccessExpiresAt).toISOString()
+      : null,
     createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : null,
   }));
 

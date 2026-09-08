@@ -83,6 +83,10 @@ export default async function AdminStudentDetailPage({
                 videoAccessExpiresAt: student.videoAccessExpiresAt
                   ? new Date(student.videoAccessExpiresAt).toISOString()
                   : null,
+                aiAccessEnabled: Boolean(student.aiAccessEnabled),
+                aiAccessExpiresAt: student.aiAccessExpiresAt
+                  ? new Date(student.aiAccessExpiresAt).toISOString()
+                  : null,
               }}
             />
           </div>

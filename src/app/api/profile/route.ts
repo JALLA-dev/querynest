@@ -1,4 +1,4 @@
-import { getCurrentUser, requireUser } from "@/lib/auth";
+import { getCurrentUser, requireUser, checkAiAccess } from "@/lib/auth";
 import { updateUserProfile } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -8,12 +8,14 @@ export async function GET() {
   if (!user) {
     return Response.json({ user: null });
   }
+  const aiAccess = checkAiAccess(user);
   return Response.json({
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      aiAccess,
     },
   });
 }

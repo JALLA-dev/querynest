@@ -12,6 +12,8 @@ export type StudentAccessProps = {
     notesAccessExpiresAt?: string | null;
     videoAccessEnabled?: boolean | null;
     videoAccessExpiresAt?: string | null;
+    aiAccessEnabled?: boolean | null;
+    aiAccessExpiresAt?: string | null;
   };
   compact?: boolean;
   onUpdate?: (updated: {
@@ -19,6 +21,8 @@ export type StudentAccessProps = {
     notesExpiresAt: Date | null;
     videoEnabled: boolean;
     videoExpiresAt: Date | null;
+    aiEnabled: boolean;
+    aiExpiresAt: Date | null;
   }) => void;
 };
 
@@ -37,8 +41,15 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
     : "";
   const [videoExpiresAt, setVideoExpiresAt] = useState<string>(initialVideoDate);
 
-  // Active sub-tab on mobile / desktop
-  const [activeTab, setActiveTab] = useState<"notes" | "video">("notes");
+  // AI Agent state
+  const [aiEnabled, setAiEnabled] = useState(Boolean(student.aiAccessEnabled));
+  const initialAiDate = student.aiAccessExpiresAt
+    ? new Date(student.aiAccessExpiresAt).toISOString().slice(0, 16)
+    : "";
+  const [aiExpiresAt, setAiExpiresAt] = useState<string>(initialAiDate);
+
+  // Active sub-tab
+  const [activeTab, setActiveTab] = useState<"notes" | "video" | "ai">("notes");
 
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -70,6 +81,7 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
 
   const notesStatus = computeStatus(notesEnabled, notesExpiresAt, "Notes");
   const videoStatus = computeStatus(videoEnabled, videoExpiresAt, "Video");
+  const aiStatus = computeStatus(aiEnabled, aiExpiresAt, "AI");
 
   const applyPreset = (setter: (val: string) => void, days: number | null) => {
     if (days === null) {
@@ -80,9 +92,13 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
     }
   };
 
-  const syncVideoToNotes = () => {
-    setVideoEnabled(notesEnabled);
-    setVideoExpiresAt(notesExpiresAt);
+  const grantAllLifetime = () => {
+    setNotesEnabled(true);
+    setNotesExpiresAt("");
+    setVideoEnabled(true);
+    setVideoExpiresAt("");
+    setAiEnabled(true);
+    setAiExpiresAt("");
   };
 
   const handleSave = () => {
@@ -91,6 +107,7 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
       try {
         const payloadNotesDate = notesExpiresAt ? new Date(notesExpiresAt).toISOString() : null;
         const payloadVideoDate = videoExpiresAt ? new Date(videoExpiresAt).toISOString() : null;
+        const payloadAiDate = aiExpiresAt ? new Date(aiExpiresAt).toISOString() : null;
 
         const res = await fetch("/api/admin/students/notes-access", {
           method: "POST",
@@ -101,6 +118,8 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
             notesExpiresAt: payloadNotesDate,
             videoEnabled,
             videoExpiresAt: payloadVideoDate,
+            aiEnabled,
+            aiExpiresAt: payloadAiDate,
           }),
         });
 
@@ -109,13 +128,15 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
           throw new Error(data.error || "Failed to update permissions");
         }
 
-        setMessage({ type: "success", text: "Access permissions updated successfully!" });
+        setMessage({ type: "success", text: "All access permissions updated successfully!" });
         if (onUpdate) {
           onUpdate({
             notesEnabled,
             notesExpiresAt: notesExpiresAt ? new Date(notesExpiresAt) : null,
             videoEnabled,
             videoExpiresAt: videoExpiresAt ? new Date(videoExpiresAt) : null,
+            aiEnabled,
+            aiExpiresAt: aiExpiresAt ? new Date(aiExpiresAt) : null,
           });
         }
       } catch (err: unknown) {
@@ -129,6 +150,7 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <Pill tone={notesStatus.tone}>📝 {notesStatus.label}</Pill>
         <Pill tone={videoStatus.tone}>🎬 {videoStatus.label}</Pill>
+        <Pill tone={aiStatus.tone}>🤖 {aiStatus.label}</Pill>
       </div>
     );
   }
@@ -138,20 +160,27 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
       {/* Header with Student Info */}
       <div className="flex flex-col gap-3 pb-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
         <div>
-          <h3 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
-            Class Materials Access Control
+          <h3 className="text-base font-black text-slate-950 dark:text-white flex items-center gap-2">
+            <span>Permissions for</span>
+            <span className="text-emerald-600 dark:text-emerald-400">{student.name}</span>
           </h3>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Configure permission switches and expiration dates for <b>{student.name}</b>.
-          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{student.email}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <Pill tone={notesStatus.tone}>Notes: {notesStatus.label}</Pill>
           <Pill tone={videoStatus.tone}>Video: {videoStatus.label}</Pill>
+          <Pill tone={aiStatus.tone}>AI: {aiStatus.label}</Pill>
+          <button
+            type="button"
+            onClick={grantAllLifetime}
+            className="rounded-lg bg-emerald-50 border border-emerald-300 px-2 py-1 font-bold text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:border-emerald-700 dark:text-emerald-300"
+          >
+            ⚡ Grant All
+          </button>
         </div>
       </div>
 
-      {/* Tabs / Selector (Mobile-friendly pills) */}
+      {/* Tabs / Selector */}
       <div className="mt-4 flex rounded-2xl bg-slate-100 p-1 dark:bg-slate-800/80">
         <button
           type="button"
@@ -163,7 +192,7 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
           }`}
         >
           <span>📝</span>
-          <span>Class Notes Access</span>
+          <span>Class Notes</span>
           <span className={`size-2 rounded-full ${notesEnabled ? "bg-emerald-500" : "bg-slate-400"}`} />
         </button>
         <button
@@ -176,8 +205,21 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
           }`}
         >
           <span>🎬</span>
-          <span>Class Video Access</span>
+          <span>Class Videos</span>
           <span className={`size-2 rounded-full ${videoEnabled ? "bg-emerald-500" : "bg-slate-400"}`} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("ai")}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-black transition ${
+            activeTab === "ai"
+              ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-white"
+              : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          }`}
+        >
+          <span>🤖</span>
+          <span>AI Agent Access</span>
+          <span className={`size-2 rounded-full ${aiEnabled ? "bg-emerald-500" : "bg-slate-400"}`} />
         </button>
       </div>
 
@@ -211,10 +253,6 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
             <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
               Notes Expiration Date & Time
             </label>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              When expired, class notes are automatically locked for this student.
-            </p>
-
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <input
                 type="datetime-local"
@@ -234,14 +272,12 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
               )}
             </div>
 
-            {/* Quick presets */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold text-slate-400">Presets:</span>
               {[
                 { label: "+7 Days", days: 7 },
                 { label: "+30 Days", days: 30 },
                 { label: "+90 Days", days: 90 },
-                { label: "+1 Year", days: 365 },
                 { label: "Lifetime", days: null },
               ].map((p) => (
                 <button
@@ -266,7 +302,7 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
             <div>
               <b className="text-sm font-black text-slate-950 dark:text-white">Class Video Permission Switch</b>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Grant or revoke permission to view video lectures and tutorials on lesson pages.
+                Grant or revoke permission to watch full video lectures.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -286,22 +322,9 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
           </div>
 
           <div>
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                Video Expiration Date & Time
-              </label>
-              <button
-                type="button"
-                onClick={syncVideoToNotes}
-                className="text-xs font-bold text-emerald-600 hover:underline dark:text-emerald-400"
-              >
-                Copy from Notes Settings ⤸
-              </button>
-            </div>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              When expired, lesson video players are automatically locked for this student.
-            </p>
-
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+              Video Expiration Date & Time
+            </label>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <input
                 type="datetime-local"
@@ -321,14 +344,12 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
               )}
             </div>
 
-            {/* Quick presets */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold text-slate-400">Presets:</span>
               {[
                 { label: "+7 Days", days: 7 },
                 { label: "+30 Days", days: 30 },
                 { label: "+90 Days", days: 90 },
-                { label: "+1 Year", days: 365 },
                 { label: "Lifetime", days: null },
               ].map((p) => (
                 <button
@@ -336,6 +357,82 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
                   type="button"
                   disabled={!videoEnabled}
                   onClick={() => applyPreset(setVideoExpiresAt, p.days)}
+                  className="min-h-[36px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: AI AGENT */}
+      {activeTab === "ai" && (
+        <div className="mt-5 space-y-4 animate-in fade-in duration-200">
+          <div className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-slate-800/50">
+            <div>
+              <b className="text-sm font-black text-slate-950 dark:text-white">AI Agent & Voice Copilot Switch</b>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Grant or lock access to the QueryNest AI SQL Agent and voice assistant.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                {aiEnabled ? "Granted (ON)" : "Locked (OFF)"}
+              </span>
+              <label className="relative inline-flex min-h-[44px] min-w-[56px] cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={aiEnabled}
+                  onChange={(e) => setAiEnabled(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <div className="h-7 w-14 rounded-full bg-slate-300 transition-colors peer-checked:bg-emerald-500 after:absolute after:top-[11px] after:left-[3px] after:h-[22px] after:w-[22px] after:rounded-full after:bg-white after:shadow-md after:transition-all after:content-[''] peer-checked:after:translate-x-7 dark:bg-slate-700"></div>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+              AI Agent Expiration Date & Time
+            </label>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              When locked or expired, the student sees a prompt to contact their instructor.
+            </p>
+
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                value={aiExpiresAt}
+                onChange={(e) => setAiExpiresAt(e.target.value)}
+                disabled={!aiEnabled}
+                className="min-h-[44px] w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              />
+              {aiExpiresAt && aiEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setAiExpiresAt("")}
+                  className="min-h-[44px] rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                >
+                  Clear Expiry
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-400">Presets:</span>
+              {[
+                { label: "+7 Days", days: 7 },
+                { label: "+30 Days", days: 30 },
+                { label: "+90 Days", days: 90 },
+                { label: "Lifetime", days: null },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  disabled={!aiEnabled}
+                  onClick={() => applyPreset(setAiExpiresAt, p.days)}
                   className="min-h-[36px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                 >
                   {p.label}
@@ -360,7 +457,7 @@ export function AdminStudentNotesAccess({ student, compact = false, onUpdate }: 
             </span>
           ) : (
             <span className="text-slate-400">
-              Notes: {notesStatus.desc} • Video: {videoStatus.desc}
+              Notes: {notesStatus.desc} • Video: {videoStatus.desc} • AI: {aiStatus.desc}
             </span>
           )}
         </div>

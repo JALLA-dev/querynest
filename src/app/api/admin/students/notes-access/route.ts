@@ -21,6 +21,8 @@ export async function POST(req: Request) {
       notesExpiresAt,
       videoEnabled,
       videoExpiresAt,
+      aiEnabled,
+      aiExpiresAt,
     } = body;
 
     if (!studentId || typeof studentId !== "string") {
@@ -32,6 +34,8 @@ export async function POST(req: Request) {
       notesAccessExpiresAt?: Date | null;
       videoAccessEnabled?: boolean;
       videoAccessExpiresAt?: Date | null;
+      aiAccessEnabled?: boolean;
+      aiAccessExpiresAt?: Date | null;
     } = {};
 
     // Helper to parse date
@@ -47,15 +51,20 @@ export async function POST(req: Request) {
     } else if (type === "notes") {
       if (typeof enabled === "boolean") permissions.notesAccessEnabled = enabled;
       if (expiresAt !== undefined) permissions.notesAccessExpiresAt = parseDate(expiresAt);
-    } else if (type === "both") {
+    } else if (type === "ai") {
+      if (typeof enabled === "boolean") permissions.aiAccessEnabled = enabled;
+      if (expiresAt !== undefined) permissions.aiAccessExpiresAt = parseDate(expiresAt);
+    } else if (type === "both" || type === "all") {
       if (typeof enabled === "boolean") {
         permissions.notesAccessEnabled = enabled;
         permissions.videoAccessEnabled = enabled;
+        permissions.aiAccessEnabled = enabled;
       }
       if (expiresAt !== undefined) {
         const d = parseDate(expiresAt);
         permissions.notesAccessExpiresAt = d;
         permissions.videoAccessExpiresAt = d;
+        permissions.aiAccessExpiresAt = d;
       }
     } else {
       // Check for explicit fields
@@ -64,6 +73,9 @@ export async function POST(req: Request) {
 
       if (typeof videoEnabled === "boolean") permissions.videoAccessEnabled = videoEnabled;
       if (videoExpiresAt !== undefined) permissions.videoAccessExpiresAt = parseDate(videoExpiresAt);
+
+      if (typeof aiEnabled === "boolean") permissions.aiAccessEnabled = aiEnabled;
+      if (aiExpiresAt !== undefined) permissions.aiAccessExpiresAt = parseDate(aiExpiresAt);
 
       // Legacy fallback
       if (permissions.notesAccessEnabled === undefined && typeof enabled === "boolean") {
@@ -87,6 +99,8 @@ export async function POST(req: Request) {
         notesAccessExpiresAt: updated.notesAccessExpiresAt,
         videoAccessEnabled: updated.videoAccessEnabled,
         videoAccessExpiresAt: updated.videoAccessExpiresAt,
+        aiAccessEnabled: updated.aiAccessEnabled,
+        aiAccessExpiresAt: updated.aiAccessExpiresAt,
       },
     });
   } catch (error: unknown) {

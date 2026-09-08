@@ -15,6 +15,8 @@ export type AdminStudentItem = {
   notesAccessExpiresAt?: string | null;
   videoAccessEnabled?: boolean | null;
   videoAccessExpiresAt?: string | null;
+  aiAccessEnabled?: boolean | null;
+  aiAccessExpiresAt?: string | null;
   createdAt?: string | null;
 };
 
@@ -68,10 +70,13 @@ export function AdminStudentsClient({ students: initialStudents }: Props) {
       notesExpiresAt: Date | null;
       videoEnabled: boolean;
       videoExpiresAt: Date | null;
+      aiEnabled?: boolean;
+      aiExpiresAt?: Date | null;
     }
   ) => {
     const notesExpStr = updated.notesExpiresAt ? updated.notesExpiresAt.toISOString() : null;
     const videoExpStr = updated.videoExpiresAt ? updated.videoExpiresAt.toISOString() : null;
+    const aiExpStr = updated.aiExpiresAt ? updated.aiExpiresAt.toISOString() : null;
 
     setStudents((prev) =>
       prev.map((s) =>
@@ -82,6 +87,8 @@ export function AdminStudentsClient({ students: initialStudents }: Props) {
               notesAccessExpiresAt: notesExpStr,
               videoAccessEnabled: updated.videoEnabled,
               videoAccessExpiresAt: videoExpStr,
+              aiAccessEnabled: updated.aiEnabled !== undefined ? updated.aiEnabled : s.aiAccessEnabled,
+              aiAccessExpiresAt: aiExpStr !== undefined ? aiExpStr : s.aiAccessExpiresAt,
             }
           : s
       )
@@ -96,6 +103,8 @@ export function AdminStudentsClient({ students: initialStudents }: Props) {
               notesAccessExpiresAt: notesExpStr,
               videoAccessEnabled: updated.videoEnabled,
               videoAccessExpiresAt: videoExpStr,
+              aiAccessEnabled: updated.aiEnabled !== undefined ? updated.aiEnabled : prev.aiAccessEnabled,
+              aiAccessExpiresAt: aiExpStr !== undefined ? aiExpStr : prev.aiAccessExpiresAt,
             }
           : null
       );
@@ -147,6 +156,7 @@ export function AdminStudentsClient({ students: initialStudents }: Props) {
         {filtered.map((student) => {
           const notesStatus = getStatus(student.notesAccessEnabled, student.notesAccessExpiresAt, "Notes");
           const videoStatus = getStatus(student.videoAccessEnabled, student.videoAccessExpiresAt, "Video");
+          const aiStatus = getStatus(student.aiAccessEnabled, student.aiAccessExpiresAt, "AI");
           return (
             <Card key={student.id} className="p-4 space-y-3.5">
               <div className="flex items-start justify-between gap-3">
@@ -171,6 +181,10 @@ export function AdminStudentsClient({ students: initialStudents }: Props) {
                 <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-2.5 py-1 text-xs dark:bg-slate-800">
                   <span className="font-bold text-slate-500">Video:</span>
                   <Pill tone={videoStatus.tone}>{videoStatus.label}</Pill>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-2.5 py-1 text-xs dark:bg-slate-800">
+                  <span className="font-bold text-slate-500">AI:</span>
+                  <Pill tone={aiStatus.tone}>{aiStatus.label}</Pill>
                 </div>
               </div>
 
@@ -215,6 +229,7 @@ export function AdminStudentsClient({ students: initialStudents }: Props) {
                 <th className="px-5 py-4 text-left font-black text-slate-900 dark:text-white">Level</th>
                 <th className="px-5 py-4 text-left font-black text-slate-900 dark:text-white">Notes Access</th>
                 <th className="px-5 py-4 text-left font-black text-slate-900 dark:text-white">Video Access</th>
+                <th className="px-5 py-4 text-left font-black text-slate-900 dark:text-white">AI Access</th>
                 <th className="px-5 py-4 text-right font-black text-slate-900 dark:text-white">Actions</th>
               </tr>
             </thead>
@@ -222,6 +237,7 @@ export function AdminStudentsClient({ students: initialStudents }: Props) {
               {filtered.map((student) => {
                 const notesStatus = getStatus(student.notesAccessEnabled, student.notesAccessExpiresAt, "Notes");
                 const videoStatus = getStatus(student.videoAccessEnabled, student.videoAccessExpiresAt, "Video");
+                const aiStatus = getStatus(student.aiAccessEnabled, student.aiAccessExpiresAt, "AI");
                 return (
                   <tr key={student.id} className="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                     <td className="px-5 py-4 font-black text-slate-900 dark:text-white">
@@ -245,6 +261,12 @@ export function AdminStudentsClient({ students: initialStudents }: Props) {
                       <div className="flex items-center gap-2">
                         <Pill tone={videoStatus.tone}>{videoStatus.label}</Pill>
                         <span className="text-xs text-slate-500 dark:text-slate-400">{videoStatus.text}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <Pill tone={aiStatus.tone}>{aiStatus.label}</Pill>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{aiStatus.text}</span>
                       </div>
                     </td>
                     <td className="px-5 py-4 text-right">

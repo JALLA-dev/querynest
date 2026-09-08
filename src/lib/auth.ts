@@ -25,6 +25,8 @@ export type AuthUser = {
   notesAccessExpiresAt?: Date | null;
   videoAccessEnabled?: boolean;
   videoAccessExpiresAt?: Date | null;
+  aiAccessEnabled?: boolean;
+  aiAccessExpiresAt?: Date | null;
 };
 
 function encodePayload(payload: SessionPayload) {
@@ -97,6 +99,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       notesAccessExpiresAt: users.notesAccessExpiresAt,
       videoAccessEnabled: users.videoAccessEnabled,
       videoAccessExpiresAt: users.videoAccessExpiresAt,
+      aiAccessEnabled: users.aiAccessEnabled,
+      aiAccessExpiresAt: users.aiAccessExpiresAt,
     })
     .from(users)
     .where(eq(users.id, session.userId))
@@ -202,3 +206,42 @@ export function checkVideoAccess(user?: {
 
   return { hasAccess: true, isExpired: false, status: "active", expiresAt: expiry };
 }
+
+export type AiAccessResult = AccessResult;
+
+export function checkAiAccess(user?: {
+  role?: string | null;
+  aiAccessEnabled?: boolean | null;
+  aiAccessExpiresAt?: Date | string | null;
+} | null): AiAccessResult {
+  if (!user) {
+    return { hasAccess: false, isExpired: false, status: "disabled", expiresAt: null };
+  }
+
+  // Admins always have unconditional access to AI Agent
+  if (user.role === "ADMIN") {
+    return { hasAccess: true, isExpired: false, status: "admin", expiresAt: null };
+  }
+
+  // If permission switch is off
+  if (!user.aiAccessEnabled) {
+    return { hasAccess: false, isExpired: false, status: "disabled", expiresAt: null };
+  }
+
+  // If no expiration date set, access is lifetime/ongoing
+  if (!user.aiAccessExpiresAt) {
+    return { hasAccess: true, isExpired: false, status: "active", expiresAt: null };
+  }
+
+  const expiry = new Date(user.aiAccessExpiresAt);
+  if (isNaN(expiry.getTime())) {
+    return { hasAccess: true, isExpired: false, status: "active", expiresAt: null };
+  }
+
+  if (expiry.getTime() <= Date.now()) {
+    return { hasAccess: false, isExpired: true, status: "expired", expiresAt: expiry };
+  }
+
+  return { hasAccess: true, isExpired: false, status: "active", expiresAt: expiry };
+}
+

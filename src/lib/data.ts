@@ -401,6 +401,8 @@ export async function updateStudentPermissions(
     notesAccessExpiresAt?: Date | null;
     videoAccessEnabled?: boolean;
     videoAccessExpiresAt?: Date | null;
+    aiAccessEnabled?: boolean;
+    aiAccessExpiresAt?: Date | null;
   }
 ) {
   await ensureSchema();
@@ -419,6 +421,12 @@ export async function updateStudentPermissions(
   }
   if (permissions.videoAccessExpiresAt !== undefined) {
     updatePayload.videoAccessExpiresAt = permissions.videoAccessExpiresAt;
+  }
+  if (permissions.aiAccessEnabled !== undefined) {
+    updatePayload.aiAccessEnabled = permissions.aiAccessEnabled;
+  }
+  if (permissions.aiAccessExpiresAt !== undefined) {
+    updatePayload.aiAccessExpiresAt = permissions.aiAccessExpiresAt;
   }
 
   const [updated] = await db

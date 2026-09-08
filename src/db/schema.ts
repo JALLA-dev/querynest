@@ -31,6 +31,8 @@ export const users = pgTable(
     notesAccessExpiresAt: timestamp("notes_access_expires_at", { withTimezone: true, mode: "date" }),
     videoAccessEnabled: boolean("video_access_enabled").notNull().default(false),
     videoAccessExpiresAt: timestamp("video_access_expires_at", { withTimezone: true, mode: "date" }),
+    aiAccessEnabled: boolean("ai_access_enabled").notNull().default(false),
+    aiAccessExpiresAt: timestamp("ai_access_expires_at", { withTimezone: true, mode: "date" }),
     lastActiveAt: timestamp("last_active_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
