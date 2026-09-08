@@ -12,10 +12,12 @@
     "db:migrate": "node scripts/migrate.js"
   },
   "dependencies": {
+    "@openai/agents": "^0.17.0",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
     "nanoid": "^6.0.1",
     "next": "16.2.6",
+    "openai": "^7.10.0",
     "pg": "^8.23.0",
     "react": "19.2.6",
     "react-dom": "19.2.6"

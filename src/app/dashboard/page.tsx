@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Footer, PublicHeader, Shell, Card, StatCard, ProgressBar, Pill, EmptyState } from "@/components/ui";
-import { BinduStudentCard } from "@/components/bindu-agent";
 import { requireUser } from "@/lib/auth";
 import { ensureSeeded } from "@/lib/seed";
 import { getDashboardData, getPublishedCourses, getAllQuizzesForStudent } from "@/lib/data";
@@ -125,8 +124,6 @@ export default async function DashboardPage() {
           </Card>
 
           <div className="space-y-6">
-            <BinduStudentCard />
-
             <Card>
               <h2 className="text-2xl font-black text-slate-950 dark:text-white">Proficiency Summary</h2>
               <div className="mt-5 grid place-items-center rounded-[2rem] bg-gradient-to-br from-emerald-500/10 to-indigo-500/10 p-8 text-center dark:bg-slate-950/60 dark:border dark:border-slate-800">

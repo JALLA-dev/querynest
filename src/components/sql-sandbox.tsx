@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { DataTable } from "./ui";
-import type { JsonRow, PracticeDataset } from "@/db/schema";
+import type { JsonRow } from "@/db/schema";
 import { DEFAULT_PRACTICE_DATASET } from "@/app/api/practice/run/route";
+import { SqlAiAgentPanel } from "./sql-ai-agent-panel";
 
 const TEMPLATES = [
   { label: "SELECT *", query: "SELECT * FROM employees" },
@@ -14,23 +15,29 @@ const TEMPLATES = [
   { label: "Completed Orders", query: "SELECT customer, item, amount FROM orders WHERE status = 'Completed'" },
 ];
 
-export function SqlSandbox({ initialTasks }: { initialTasks?: Array<{ id: string; title: string; points: number; difficulty: string; description: string }> }) {
+export function SqlSandbox({
+  initialTasks,
+}: {
+  initialTasks?: Array<{ id: string; title: string; points: number; difficulty: string; description: string }>;
+}) {
   const [selectedTable, setSelectedTable] = useState<string>("employees");
   const [query, setQuery] = useState("SELECT * FROM employees");
   const [result, setResult] = useState<{ ok: boolean; message: string; rows: JsonRow[]; columns: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"copilot" | "schema" | "tasks">("copilot");
 
   const currentTableRows = DEFAULT_PRACTICE_DATASET.tables[selectedTable] ?? [];
   const currentTableColumns = Object.keys(currentTableRows[0] ?? {});
 
-  async function runQuery() {
-    if (!query.trim()) return;
+  async function runQuery(customQuery?: string) {
+    const q = (customQuery ?? query).trim();
+    if (!q) return;
     setLoading(true);
     try {
       const res = await fetch("/api/practice/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, dataset: DEFAULT_PRACTICE_DATASET }),
+        body: JSON.stringify({ query: q, dataset: DEFAULT_PRACTICE_DATASET }),
       });
       const data = await res.json();
       setResult(data);
@@ -39,6 +46,21 @@ export function SqlSandbox({ initialTasks }: { initialTasks?: Array<{ id: string
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleInjectQuery(newSql: string, table?: string) {
+    setQuery(newSql);
+    if (table && DEFAULT_PRACTICE_DATASET.tables[table]) {
+      setSelectedTable(table);
+    }
+  }
+
+  async function handleAutoRunQuery(newSql: string, table?: string) {
+    setQuery(newSql);
+    if (table && DEFAULT_PRACTICE_DATASET.tables[table]) {
+      setSelectedTable(table);
+    }
+    await runQuery(newSql);
   }
 
   return (
@@ -86,7 +108,14 @@ export function SqlSandbox({ initialTasks }: { initialTasks?: Array<{ id: string
                   SQL Sandbox Editor
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("copilot")}
+                  className="flex items-center gap-1 rounded-xl border border-emerald-500/30 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-950/40 dark:text-emerald-300"
+                >
+                  <span>🤖 Ask AI Copilot</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setQuery("")}
@@ -104,7 +133,7 @@ export function SqlSandbox({ initialTasks }: { initialTasks?: Array<{ id: string
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={runQuery}
+                  onClick={() => runQuery()}
                   className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-1.5 text-xs font-black text-white shadow-lg shadow-emerald-600/20 hover:opacity-90 disabled:opacity-60"
                 >
                   {loading ? "Running..." : "▶ Run SQL"}
@@ -142,7 +171,7 @@ export function SqlSandbox({ initialTasks }: { initialTasks?: Array<{ id: string
             />
 
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              Supports safe SELECT statements with WHERE conditions, column projections, and ORDER BY clauses.
+              Supports safe SELECT statements with WHERE conditions, column projections, and ORDER BY clauses. Or let the AI Agent write queries for you!
             </p>
           </div>
 
@@ -168,35 +197,86 @@ export function SqlSandbox({ initialTasks }: { initialTasks?: Array<{ id: string
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                Type or select a query above and click <b className="text-emerald-600 dark:text-emerald-400">▶ Run SQL</b> to see live results here.
+                Type or select a query above or ask the AI Copilot to write & run it automatically!
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Side: Table Schema Preview & Guided Tasks */}
-        <div className="space-y-6">
-          {/* Table Data Preview */}
-          <div className="rounded-[2rem] border border-white/70 bg-white p-6 shadow-xl shadow-slate-950/[0.06] dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                Table: <span className="font-mono text-emerald-600 dark:text-emerald-400">{selectedTable}</span>
-              </h3>
-              <span className="text-xs font-bold text-slate-500">Previewing {currentTableRows.length} rows</span>
-            </div>
-            <div className="overflow-x-auto max-h-[300px]">
-              <DataTable columns={currentTableColumns} rows={currentTableRows} />
-            </div>
+        {/* Right Side: AI Copilot & Schema & Tasks */}
+        <div className="space-y-4">
+          {/* Navigation Switcher Tabs */}
+          <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/80 p-1.5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+            <button
+              type="button"
+              onClick={() => setActiveTab("copilot")}
+              className={`flex-1 rounded-xl py-2 px-3 text-xs font-black transition ${
+                activeTab === "copilot"
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 dark:bg-emerald-500 dark:text-slate-950"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              }`}
+            >
+              🤖 AI SQL Copilot
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("schema")}
+              className={`flex-1 rounded-xl py-2 px-3 text-xs font-black transition ${
+                activeTab === "schema"
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 dark:bg-emerald-500 dark:text-slate-950"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              }`}
+            >
+              📊 Table Schema
+            </button>
+            {initialTasks && initialTasks.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("tasks")}
+                className={`flex-1 rounded-xl py-2 px-3 text-xs font-black transition ${
+                  activeTab === "tasks"
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 dark:bg-emerald-500 dark:text-slate-950"
+                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                }`}
+              >
+                🎯 Challenges ({initialTasks.length})
+              </button>
+            )}
           </div>
 
-          {/* Guided Practice Tasks */}
-          {initialTasks && initialTasks.length > 0 && (
+          {/* Tab 1: AI Copilot */}
+          {activeTab === "copilot" && (
+            <SqlAiAgentPanel
+              currentQuery={query}
+              selectedTable={selectedTable}
+              onInjectQuery={handleInjectQuery}
+              onAutoRunQuery={handleAutoRunQuery}
+            />
+          )}
+
+          {/* Tab 2: Table Data Preview */}
+          {activeTab === "schema" && (
+            <div className="rounded-[2rem] border border-white/70 bg-white p-6 shadow-xl shadow-slate-950/[0.06] dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                  Table: <span className="font-mono text-emerald-600 dark:text-emerald-400">{selectedTable}</span>
+                </h3>
+                <span className="text-xs font-bold text-slate-500">Previewing {currentTableRows.length} rows</span>
+              </div>
+              <div className="overflow-x-auto max-h-[480px]">
+                <DataTable columns={currentTableColumns} rows={currentTableRows} />
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: Guided Practice Tasks */}
+          {activeTab === "tasks" && initialTasks && initialTasks.length > 0 && (
             <div className="rounded-[2rem] border border-white/70 bg-white p-6 shadow-xl shadow-slate-950/[0.06] dark:border-slate-800 dark:bg-slate-900">
               <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Curated Practice Challenges</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
                 Solve these targeted tasks to earn profile points and rank on the leaderboard:
               </p>
-              <div className="grid gap-3">
+              <div className="grid gap-3 max-h-[480px] overflow-y-auto pr-1">
                 {initialTasks.map((t) => (
                   <a
                     key={t.id}
