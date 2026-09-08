@@ -1,7 +1,22 @@
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser, requireUser } from "@/lib/auth";
 import { updateUserProfile } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return Response.json({ user: null });
+  }
+  return Response.json({
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
+  });
+}
 
 export async function POST(request: Request) {
   try {

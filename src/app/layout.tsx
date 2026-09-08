@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Script from "next/script";
 import { VisitorTracker } from "@/components/visitor-tracker";
+import { QuerynestVoiceAgent } from "@/components/querynest-voice-agent";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-screen bg-slate-50 text-slate-950 antialiased transition-colors duration-200 dark:bg-slate-950 dark:text-slate-50">
         <VisitorTracker />
         {children}
+        <QuerynestVoiceAgent />
       </body>
     </html>
   );

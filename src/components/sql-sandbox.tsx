@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DataTable } from "./ui";
 import type { JsonRow } from "@/db/schema";
 import { DEFAULT_PRACTICE_DATASET } from "@/app/api/practice/run/route";
@@ -50,18 +50,46 @@ export function SqlSandbox({
 
   function handleInjectQuery(newSql: string, table?: string) {
     setQuery(newSql);
-    if (table && DEFAULT_PRACTICE_DATASET.tables[table]) {
-      setSelectedTable(table);
+    let targetTable = table;
+    if (!targetTable) {
+      if (newSql.toLowerCase().includes("students")) targetTable = "students";
+      else if (newSql.toLowerCase().includes("orders")) targetTable = "orders";
+      else if (newSql.toLowerCase().includes("employees")) targetTable = "employees";
+    }
+    if (targetTable && DEFAULT_PRACTICE_DATASET.tables[targetTable]) {
+      setSelectedTable(targetTable);
     }
   }
 
   async function handleAutoRunQuery(newSql: string, table?: string) {
-    setQuery(newSql);
-    if (table && DEFAULT_PRACTICE_DATASET.tables[table]) {
-      setSelectedTable(table);
-    }
+    handleInjectQuery(newSql, table);
     await runQuery(newSql);
   }
+
+  // Listen to global voice assistant inject events & URL parameters
+  useEffect(() => {
+    function handleCustomEvent(e: any) {
+      const { sql, autoRun } = e.detail || {};
+      if (sql) {
+        handleInjectQuery(sql);
+        if (autoRun) {
+          handleAutoRunQuery(sql);
+        }
+      }
+    }
+
+    window.addEventListener("querynest-inject-sql", handleCustomEvent);
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const injected = params.get("injectedQuery");
+      if (injected) {
+        handleInjectQuery(injected);
+      }
+    }
+
+    return () => window.removeEventListener("querynest-inject-sql", handleCustomEvent);
+  }, []);
 
   return (
     <div className="space-y-8">
